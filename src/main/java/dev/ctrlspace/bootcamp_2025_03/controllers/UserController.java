@@ -2,6 +2,8 @@ package dev.ctrlspace.bootcamp_2025_03.controllers;
 
 
 import dev.ctrlspace.bootcamp_2025_03.model.User;
+import dev.ctrlspace.bootcamp_2025_03.services.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,46 +13,29 @@ import java.util.List;
 @RestController
 public class UserController {
 
+    private UserService userService;
 
-    private List<User> users;
-
-    public UserController() {
-        users = new ArrayList<>();
-        User chris = new User(1, "Chris Sekas", "csekas@ctrlspace.dev", "123456");
-        users.add(chris);
-        users.add(new User(2, "Mary", "mary@gmail.com", "123456"));
-        users.add(new User(3, "Nick", "Nick@gmail.com", "123456"));
-        users.add(new User(4, "Alkisti", "Alkisti@gmail.com", "123456"));
-
+    @Autowired
+    public UserController(UserService userService) {
+        this.userService = userService;
     }
-
-
 
     @GetMapping("/users")
     public List<User> getUser() {
-        return users;
+        return userService.getUsers();
     }
 
     //    HTTP GET /users/1   <- Rest APIs
     @GetMapping(value = "/users/{id}")
     public User getUserById(@PathVariable long id) {
-        for (User user : users) {
-            if (user.getId() == id) {
-                return user;
-            }
-        }
-        return null;
+        return userService.getUserById(id);
+
     }
 
 //    HTTP GET /users?id=1
     @GetMapping(value = "/users", params = "id")
     public User getUserByParamId(@RequestParam long id) {
-        for (User user : users) {
-            if (user.getId() == id) {
-                return user;
-            }
-        }
-        return null;
+        return userService.getUserById(id);
     }
 
     @PostMapping(value = "/users")

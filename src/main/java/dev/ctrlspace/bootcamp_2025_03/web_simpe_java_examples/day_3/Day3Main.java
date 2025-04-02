@@ -1,7 +1,7 @@
-package dev.ctrlspace.bootcamp_2025_03.day_3;
+package dev.ctrlspace.bootcamp_2025_03.web_simpe_java_examples.day_3;
 
-import dev.ctrlspace.bootcamp_2025_03.day_3.model.Circle;
-import dev.ctrlspace.bootcamp_2025_03.day_3.model.Message;
+import dev.ctrlspace.bootcamp_2025_03.web_simpe_java_examples.day_3.model.Circle;
+import dev.ctrlspace.bootcamp_2025_03.web_simpe_java_examples.day_3.model.Message;
 
 import java.time.Instant;
 

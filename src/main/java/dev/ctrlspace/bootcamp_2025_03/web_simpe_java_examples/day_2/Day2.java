@@ -1,4 +1,4 @@
-package dev.ctrlspace.bootcamp_2025_03.day_2;
+package dev.ctrlspace.bootcamp_2025_03.web_simpe_java_examples.day_2;
 
 public class Day2 {
 

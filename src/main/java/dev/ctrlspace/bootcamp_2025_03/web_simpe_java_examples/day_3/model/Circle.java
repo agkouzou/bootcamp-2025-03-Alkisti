@@ -1,4 +1,4 @@
-package dev.ctrlspace.bootcamp_2025_03.day_3.model;
+package dev.ctrlspace.bootcamp_2025_03.web_simpe_java_examples.day_3.model;
 
 public class Circle {
 
