@@ -1,11 +1,15 @@
 package dev.ctrlspace.bootcamp_2025_03.model;
 
+import java.util.List;
+
 public class User {
 
     private Long id;
     private String name;
     private String email;
     private String password;
+
+    private List<CartItem> cart;
 
     public User() {
     }

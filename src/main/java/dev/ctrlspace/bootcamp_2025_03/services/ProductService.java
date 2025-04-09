@@ -1,7 +1,9 @@
 package dev.ctrlspace.bootcamp_2025_03.services;
 
+import dev.ctrlspace.bootcamp_2025_03.exceptions.BootcampException;
 import dev.ctrlspace.bootcamp_2025_03.model.Product;
 import dev.ctrlspace.bootcamp_2025_03.model.User;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -47,17 +49,17 @@ public class ProductService {
     public Product createProduct(Product newProduct) throws Exception {
 
         if (newProduct.getId() != null) {
-            throw new Exception("Product id must be null");
+            throw new BootcampException(HttpStatus.BAD_REQUEST,"Product id must be null");
         }
 
         Product existingProduct = getProductByName(newProduct.getName());
 
         if (existingProduct != null) {
-            throw new Exception("Product with the same name already exists");
+            throw new BootcampException(HttpStatus.BAD_REQUEST, "Product with the same name already exists");
         }
 
         if (newProduct.getPrice() <= 0) {
-            throw new Exception("Product price must be greater than 0");
+            throw new BootcampException(HttpStatus.BAD_REQUEST, "Product price must be greater than 0");
         }
 
         newProduct.setId(products.size() + 1L);
