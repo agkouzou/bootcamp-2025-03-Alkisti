@@ -8,12 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -71,14 +67,24 @@ public class UserController {
     }
 
     @PutMapping(value = "/{id}")
-    public User updateUser(@PathVariable long id, @RequestBody User user) {
-//        TODO update user
-        return null;
+    public User updateUser(@PathVariable long id, @RequestBody User user) throws BootcampException {
+
+        if (user.getId() != null && user.getId() != id) {
+            throw new BootcampException(HttpStatus.BAD_REQUEST, "User id must be the same as the path variable");
+        }
+
+        User updatedUser = userService.updateById(id, user);
+
+        return updatedUser;
     }
 
     @DeleteMapping(value = "/{id}")
-    public void deleteUser(@PathVariable long id) {
-//        TODO delete user
+    public User deleteUser(@PathVariable long id) throws BootcampException {
+
+        User deletedUser = userService.deleteById(id);
+
+        return deletedUser;
+
 
     }
 

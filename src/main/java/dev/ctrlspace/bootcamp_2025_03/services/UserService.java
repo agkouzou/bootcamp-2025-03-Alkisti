@@ -64,4 +64,28 @@ public class UserService {
         users.add(user);
         return user;
     }
+
+    public User updateById(Long userIdToUpdate, User newUser) throws BootcampException {
+
+        User existingUser = getUserById(userIdToUpdate);
+
+        // Update existing user with the new user details
+        existingUser.setName(newUser.getName());
+        existingUser.setEmail(newUser.getEmail());
+        existingUser.setPassword(newUser.getPassword());
+
+//        userRapository.save(existingUser);
+
+        return existingUser;
+    }
+
+    public User deleteById(long id) throws BootcampException {
+//        userRepository.deleteById(id);
+
+        User deletedUser = getUserById(id);
+
+        users.remove(deletedUser);
+
+        return deletedUser;
+    }
 }
