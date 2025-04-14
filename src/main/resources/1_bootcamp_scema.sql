@@ -5,6 +5,34 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT
 );
 
+CREATE TABLE IF NOT EXISTS products (
+                                        id BIGSERIAL PRIMARY KEY,
+                                        name TEXT NOT NULL,
+                                        price NUMERIC(10, 2) NOT NULL,
+                                        stock INT NOT NULL
+);
+
+
+-- Table for Orders and associated with user
+CREATE TABLE IF NOT EXISTS orders (
+                                      id BIGSERIAL PRIMARY KEY,
+                                      user_id BIGINT NOT NULL,
+                                      status TEXT NOT NULL,
+                                      created_at TIMESTAMP NOT NULL, -- DEFAULT CURRENT_TIMESTAMP,
+                                      FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Table for cart items and associated with order
+CREATE TABLE IF NOT EXISTS cart_items (
+                                         id BIGSERIAL PRIMARY KEY,
+                                         order_id BIGINT NOT NULL,
+                                         product_id BIGINT NOT NULL,
+                                         quantity INT NOT NULL,
+                                         FOREIGN KEY (order_id) REFERENCES orders(id),
+                                         FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
+-- Create test users
 INSERT INTO users (email, password, name)
 VALUES ('csekas@ctrlspace.dev', '123456', 'Chris Sekas');
 
@@ -14,14 +42,7 @@ VALUES ('alkisti@ctrlspace.dev', '123456', 'Alkisti');
 INSERT INTO users (email, password, name)
 VALUES ('nick@ctrlspace.dev', '123456', 'Nick');
 
-CREATE TABLE IF NOT EXISTS products (
-    id BIGSERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    price NUMERIC(10, 2) NOT NULL,
-    stock INT NOT NULL
-);
-
-
+-- Create test products
 INSERT INTO products (name, price, stock)
 VALUES ('Macbook Pro', 2000.00, 5);
 
@@ -34,25 +55,6 @@ VALUES ('Iphone 14', 600.00, 20);
 INSERT INTO products (name, price, stock)
 VALUES ('Iphone 14 Pro', 800.00, 15);
 
--- Table for Cart Items and associate with user
-CREATE TABLE IF NOT EXISTS orders (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    status TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL, -- DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-);
-
-
-CREATE TABLE IF NOT EXISTS cart_item (
-    id BIGSERIAL PRIMARY KEY,
-    order_id BIGINT NOT NULL,
-    product_id BIGINT NOT NULL,
-    quantity INT NOT NULL,
-    FOREIGN KEY (order_id) REFERENCES orders(id),
-    FOREIGN KEY (product_id) REFERENCES products(id)
-);
-
 -- Insert Order 1 for Chris Sekas (using his email to look up the user id)
 INSERT INTO orders (user_id, status, created_at)
 SELECT id, 'pending', '2025-04-14 10:00:00'
@@ -62,7 +64,7 @@ WHERE email = 'csekas@ctrlspace.dev';
 -- Insert Cart Items for Order 1:
 
 -- Cart item: 1 Macbook Pro (lookup product by name)
-INSERT INTO cart_item (order_id, product_id, quantity)
+INSERT INTO cart_items (order_id, product_id, quantity)
 VALUES (
            (SELECT id FROM orders
             WHERE user_id = (SELECT id FROM users WHERE email = 'csekas@ctrlspace.dev')
@@ -72,7 +74,7 @@ VALUES (
        );
 
 -- Cart item: 2 iPhone 14s (lookup product by name)
-INSERT INTO cart_item (order_id, product_id, quantity)
+INSERT INTO cart_items (order_id, product_id, quantity)
 VALUES (
            (SELECT id FROM orders
             WHERE user_id = (SELECT id FROM users WHERE email = 'csekas@ctrlspace.dev')
@@ -90,7 +92,7 @@ FROM users
 WHERE email = 'alkisti@ctrlspace.dev';
 
 -- Insert Cart Item for Order 2:
-INSERT INTO cart_item (order_id, product_id, quantity)
+INSERT INTO cart_items (order_id, product_id, quantity)
 VALUES (
            (SELECT id FROM orders
             WHERE user_id = (SELECT id FROM users WHERE email = 'alkisti@ctrlspace.dev')
@@ -108,7 +110,7 @@ FROM users
 WHERE email = 'nick@ctrlspace.dev';
 
 -- Insert Cart Item for Order 3:
-INSERT INTO cart_item (order_id, product_id, quantity)
+INSERT INTO cart_items (order_id, product_id, quantity)
 VALUES (
            (SELECT id FROM orders
             WHERE user_id = (SELECT id FROM users WHERE email = 'nick@ctrlspace.dev')
@@ -127,7 +129,7 @@ WHERE email = 'csekas@ctrlspace.dev';
 -- Insert Cart Items for Order 4:
 
 -- Cart item: 2 Macbook Airs
-INSERT INTO cart_item (order_id, product_id, quantity)
+INSERT INTO cart_items (order_id, product_id, quantity)
 VALUES (
            (SELECT id FROM orders
             WHERE user_id = (SELECT id FROM users WHERE email = 'csekas@ctrlspace.dev')
@@ -137,7 +139,7 @@ VALUES (
        );
 
 -- Cart item: 1 iPhone 14
-INSERT INTO cart_item (order_id, product_id, quantity)
+INSERT INTO cart_items (order_id, product_id, quantity)
 VALUES (
            (SELECT id FROM orders
             WHERE user_id = (SELECT id FROM users WHERE email = 'csekas@ctrlspace.dev')
