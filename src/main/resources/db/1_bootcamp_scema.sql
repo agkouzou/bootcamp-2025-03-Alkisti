@@ -40,7 +40,10 @@ INSERT INTO users (email, password, name)
 VALUES ('alkisti@ctrlspace.dev', '123456', 'Alkisti');
 
 INSERT INTO users (email, password, name)
-VALUES ('nick@ctrlspace.dev', '123456', 'Nick');
+VALUES ('nick@ctrlspace.dev', '123456789', 'Nick');
+
+INSERT INTO users (email, password, name)
+VALUES ('george@ctrspace.dev', '43f43gt45', 'George');
 
 -- Create test products
 INSERT INTO products (name, price, stock)
