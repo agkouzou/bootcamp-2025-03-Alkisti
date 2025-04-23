@@ -2,48 +2,48 @@ package dev.ctrlspace.bootcamp_2025_03.services;
 
 import dev.ctrlspace.bootcamp_2025_03.exceptions.BootcampException;
 import dev.ctrlspace.bootcamp_2025_03.model.Product;
-import dev.ctrlspace.bootcamp_2025_03.model.User;
+import dev.ctrlspace.bootcamp_2025_03.repository.ProductRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ProductService {
 
 
-    private List<Product> products;
+    private ProductRepository productRepository;
 
-    public ProductService() {
-        products = new ArrayList<>();
-        products.add(new Product(1L, "Product 1", 100.0));
-        products.add(new Product(2L, "Product 2", 200.0));
-        products.add(new Product(3L, "Product 3", 300.0));
-        products.add(new Product(4L, "Product 4", 400.0));
-
+    @Autowired
+    public ProductService(ProductRepository productRepository) {
+        this.productRepository = productRepository;
     }
 
     public List<Product> getProducts() {
-        return products;
+
+        return productRepository.findAll();
     }
 
-    public Product getProductById(long id) {
-        for (Product product : products) {
-            if (product.getId() == id) {
-                return product;
-            }
+    public Product getProductById(long id) throws BootcampException {
+        Optional<Product> product =  productRepository.findById(id);
+
+        if (product.isPresent()) {
+            return product.get();
+        } else {
+            throw new BootcampException(HttpStatus.NOT_FOUND, "Product not found");
         }
-        return null;
+
     }
 
-    public Product getProductByName(String name) {
-        for (Product product : products) {
-            if (product.getName().equals(name)) {
-                return product;
-            }
+    public Product getProductByName(String name) throws BootcampException {
+        Optional<Product> product = productRepository.findByNameWithNativeQuery(name);
+
+        if (product.isPresent()) {
+            return product.get();
         }
-        return null;
+        throw new BootcampException(HttpStatus.NOT_FOUND, "Product not found");
     }
 
     public Product createProduct(Product newProduct) throws Exception {
@@ -62,10 +62,7 @@ public class ProductService {
             throw new BootcampException(HttpStatus.BAD_REQUEST, "Product price must be greater than 0");
         }
 
-        newProduct.setId(products.size() + 1L);
-
-
-        products.add(newProduct);
+        newProduct = productRepository.save(newProduct);
         return newProduct;
     }
 
