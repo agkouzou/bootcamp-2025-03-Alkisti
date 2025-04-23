@@ -1,15 +1,31 @@
 package dev.ctrlspace.bootcamp_2025_03.model;
 
+import jakarta.persistence.*;
+
 import java.util.List;
 
+@Entity
+@Table(name = "users")
 public class User {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
+
+    @Basic
+    @Column(name = "name")
     private String name;
+
+    @Basic
+    @Column(name = "email")
     private String email;
+
+    @Basic
+    @Column(name = "password")
     private String password;
 
-    private List<CartItem> cart;
+//    private List<CartItem> cart;
 
     public User() {
     }

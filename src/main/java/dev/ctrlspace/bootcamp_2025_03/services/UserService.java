@@ -2,18 +2,26 @@ package dev.ctrlspace.bootcamp_2025_03.services;
 
 import dev.ctrlspace.bootcamp_2025_03.exceptions.BootcampException;
 import dev.ctrlspace.bootcamp_2025_03.model.User;
+import dev.ctrlspace.bootcamp_2025_03.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class UserService {
 
     private List<User> users;
+    private UserRepository userRepository;
 
-    public UserService() {
+    @Autowired
+    public UserService(UserRepository userRepository) {
+
+        this.userRepository = userRepository;
+
         users = new ArrayList<>();
         User chris = new User(1, "Chris Sekas", "csekas@ctrlspace.dev", "123456");
         users.add(chris);
@@ -34,16 +42,26 @@ public class UserService {
     public List<User> getUsers() {
 
         // TODO get users from database
-        return users;
+//        return users;
+
+        List<User> allUsers = userRepository.findAll();
+
+        return allUsers;
     }
 
     public User getUserById(long id) throws BootcampException {
-        for (User user : users) {
-            if (user.getId() == id) {
-                return user;
-            }
+
+        Optional<User> user = userRepository.findById(id);
+
+        if (user.isPresent()) {
+            return user.get();
         }
         throw new BootcampException(HttpStatus.NOT_FOUND, "User not found");
+
+//        return userRepository
+//                .findById(id)
+//                .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "User not found"));
+
     }
 
     public User create(User user) throws BootcampException {
@@ -59,9 +77,8 @@ public class UserService {
             throw new BootcampException(HttpStatus.BAD_REQUEST, "User email must not be null or empty");
         }
 
-        user.setId(users.size() + 1L);
 
-        users.add(user);
+        user = userRepository.save(user);
         return user;
     }
 
@@ -74,17 +91,16 @@ public class UserService {
         existingUser.setEmail(newUser.getEmail());
         existingUser.setPassword(newUser.getPassword());
 
-//        userRapository.save(existingUser);
+        existingUser = userRepository.save(existingUser);
 
         return existingUser;
     }
 
     public User deleteById(long id) throws BootcampException {
-//        userRepository.deleteById(id);
-
         User deletedUser = getUserById(id);
+//        userRepository.delete(deletedUser);
+        userRepository.deleteById(id);
 
-        users.remove(deletedUser);
 
         return deletedUser;
     }
