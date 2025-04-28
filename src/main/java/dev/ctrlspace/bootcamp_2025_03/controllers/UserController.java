@@ -2,14 +2,22 @@ package dev.ctrlspace.bootcamp_2025_03.controllers;
 
 
 import dev.ctrlspace.bootcamp_2025_03.exceptions.BootcampException;
+import dev.ctrlspace.bootcamp_2025_03.model.TokenDTO;
 import dev.ctrlspace.bootcamp_2025_03.model.User;
 import dev.ctrlspace.bootcamp_2025_03.services.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @RestController
@@ -19,10 +27,12 @@ public class UserController {
     Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private UserService userService;
+    private JwtEncoder jwtEncoder;
 
     @Autowired
-    public UserController(UserService userService) {
+    public UserController(UserService userService, JwtEncoder jwtEncoder) {
         this.userService = userService;
+        this.jwtEncoder = jwtEncoder;
     }
 
     @GetMapping("")
@@ -61,9 +71,34 @@ public class UserController {
     @PostMapping(value = "")
     @ResponseStatus(HttpStatus.CREATED)
     public User createUser(@RequestBody User user) throws BootcampException {
+
         User createdUser = userService.create(user);
 
         return createdUser;
+    }
+
+    @PostMapping("/login")
+    public TokenDTO login(Authentication authentication) throws BootcampException {
+
+        User loggedInUser = ((User)authentication.getPrincipal());
+        // 2) Build JWT claims
+        Instant now = Instant.now();
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer("self")
+                .issuedAt(now)
+                .expiresAt(now.plus(6, ChronoUnit.HOURS))
+                .subject(loggedInUser.getUsername())
+//                .claim("roles", auth.getAuthorities().stream()
+//                        .map(a -> a.getAuthority()).toList())
+                .build();
+
+        // 3) Encode & return token
+        String token = jwtEncoder.encode(JwtEncoderParameters.from(claims))
+                .getTokenValue();
+
+        TokenDTO tokenDTO = new TokenDTO();
+        tokenDTO.setToken(token);
+        return tokenDTO;
     }
 
     @PutMapping(value = "/{id}")

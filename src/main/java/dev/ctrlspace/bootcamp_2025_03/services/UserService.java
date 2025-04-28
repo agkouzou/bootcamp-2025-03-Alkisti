@@ -5,6 +5,9 @@ import dev.ctrlspace.bootcamp_2025_03.model.User;
 import dev.ctrlspace.bootcamp_2025_03.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -12,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-public class UserService {
+public class UserService implements UserDetailsService {
 
     private List<User> users;
     private UserRepository userRepository;
@@ -64,6 +67,15 @@ public class UserService {
 
     }
 
+    public User getUserByEmail(String email) throws BootcampException {
+        Optional<User> user = userRepository.findByEmail(email);
+
+        if (user.isPresent()) {
+            return user.get();
+        }
+        throw new BootcampException(HttpStatus.NOT_FOUND, "User not found");
+    }
+
     public User create(User user) throws BootcampException {
         if (user.getId() != null) {
             throw new BootcampException(HttpStatus.BAD_REQUEST, "User id must be null");
@@ -103,5 +115,17 @@ public class UserService {
 
 
         return deletedUser;
+    }
+
+
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        User user = null;
+        try {
+            user = this.getUserByEmail(username);
+            return user;
+        } catch (BootcampException e) {
+            throw new UsernameNotFoundException("User not found with username: " + username, e);
+        }
+
     }
 }

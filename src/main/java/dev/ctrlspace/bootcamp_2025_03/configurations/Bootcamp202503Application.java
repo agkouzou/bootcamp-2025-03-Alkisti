@@ -16,7 +16,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @ComponentScan(basePackageClasses = {
 		UserController.class,
 		UserService.class,
-		BootcampControllerAdvice.class
+		BootcampControllerAdvice.class,
+		Bootcamp202503Application.class,
 })
 @EnableJpaRepositories(basePackageClasses = {
 		UserRepository.class
