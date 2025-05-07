@@ -25,6 +25,9 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.security.interfaces.RSAPublicKey;
 import java.util.List;
@@ -39,6 +42,25 @@ public class SecurityConfig {
 //        return new UserService(userRepository);
 //    }
 
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        // allow all origins
+        config.setAllowedOriginPatterns(List.of("*"));
+        // allow all standard HTTP methods
+        config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+        // allow any header
+        config.setAllowedHeaders(List.of("*"));
+        // if you need to expose any response headers to the browser
+        config.setExposedHeaders(List.of("Authorization", "Content-Disposition"));
+        // if you want to allow cookies/credentials
+        config.setAllowCredentials(true);
+
+        // apply this config to all paths
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, UserService userService) throws Exception {
@@ -70,14 +92,7 @@ public class SecurityConfig {
 //        return new BCryptPasswordEncoder();
     }
 
-//    @Bean
-//    public DaoAuthenticationProvider authenticationProvider(UserService userService, PasswordEncoder passwordEncoder) {
-//        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-//        provider.setUserDetailsService(userService);
-//        // Tell *only* this provider to use NoOp
-//        provider.setPasswordEncoder(passwordEncoder);
-//        return provider;
-//    }
+
 
 
     // 1) Create an RSA JWK (public+private) for signing
