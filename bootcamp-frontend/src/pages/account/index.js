@@ -12,7 +12,74 @@ export default function AccountPage() {
                 <link rel="icon" href="/favicon.ico" />
             </Head>
 
-            <h1>Account Page!!!!</h1>
+            <div className="page-container">
+                <header>
+                    <div className="header-content">
+                        <div className="header-brand">
+                            <img src="./bootcamp-2025.03-logo.jpg" alt="Logo" className="header-logo"/>
+                            <div className="header-title">Chat Application</div>
+                        </div>
+                        <div className="profile-dropdown">
+                            <input type="checkbox" id="profile-toggle"/>
+                            <label htmlFor="profile-toggle" className="profile-icon">JD</label>
+                            <div className="dropdown-menu">
+                                <a href="#">Profile</a>
+                                <a href="#">Settings</a>
+                                <a href="#">Logout</a>
+                            </div>
+                            <label htmlFor="profile-toggle" className="overlay"></label>
+                        </div>
+                    </div>
+                </header>
+                <div className="content">
+                    <div className="account-settings">
+                        <h1>User Profile & Settings</h1>
+                        <form>
+                        <div className="form-group">
+                            <label htmlFor="name">Name</label>
+                            <input type="text" id="name" placeholder="John Doe"/>
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="email">Email</label>
+                            <input type="email" id="email" placeholder="john@example.com"/>
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="intro">Customize ChatGPT</label>
+                            <small>Introduce yourself to get better, more personalized responses</small>
+                            <textarea id="intro" rows="3" placeholder="Tell ChatGPT about yourself..."></textarea>
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="nickname">What should ChatGPT call you?</label>
+                            <input type="text" id="nickname" placeholder="Nickname"/>
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="job">What do you do?</label>
+                            <input type="text" id="job" placeholder="Interior designer"/>
+                        </div>
+                        <div className="form-group">
+                            <label>What traits should ChatGPT have?</label>
+                            <div className="traits">
+                                <label><input type="checkbox"/> Chatty</label>
+                                <label><input type="checkbox"/> Witty</label>
+                                <label><input type="checkbox"/> Straight shooting</label>
+                                <label><input type="checkbox"/> Encouraging</label>
+                                <label><input type="checkbox"/> Gen Z</label>
+                                <label><input type="checkbox"/> Skeptical</label>
+                                <label><input type="checkbox"/> Traditional</label>
+                                <label><input type="checkbox"/> Forward thinking</label>
+                                <label><input type="checkbox"/> Poetic</label>
+                            </div>
+                        </div>
+                        <div className="form-group">
+                            <label htmlFor="notes">Anything else ChatGPT should know about you?</label>
+                            <textarea id="notes" rows="3" placeholder="Additional details..."></textarea>
+                        </div>
+                        <button type="submit" className="submit-btn">Save Changes</button>
+                    </form>
+                    </div>
+                </div>
+                <footer>© 2025 Chat App, Inc.</footer>
+            </div>
         </>
     );
 }
