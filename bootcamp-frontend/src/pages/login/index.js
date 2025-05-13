@@ -18,6 +18,7 @@ export default function LoginPage() {
 
     const [email, setEmail] = useState(null);
     const [password, setPassword] = useState(null);
+    const [loading, setLoading] = useState(false)
 
 
     useEffect(() => {
@@ -40,7 +41,8 @@ export default function LoginPage() {
         setPassword(event.target.value);
     }
 
-    async function login() {
+    async function handleLogin() {
+        setLoading(true);
 
         let credentials = btoa(email + ":" + password);
 
@@ -61,6 +63,7 @@ export default function LoginPage() {
             // Store token in local storage
             localStorage.setItem("token", response.data.token);
 
+            setLoading(false);
             // Redirect to chat page
             window.location.href = "/chat";
 
@@ -69,6 +72,7 @@ export default function LoginPage() {
             alert("Login failed. Please check your email and password.");
             setEmail(null)
             setPassword(null)
+            setLoading(false);
         }
 
 
@@ -118,7 +122,7 @@ export default function LoginPage() {
                         </div>
 
                         <section className="form-section login">
-                            <form onSubmit={login}>
+                            <form onSubmit={handleLogin}>
                                 <div className="form-group">
                                     <label htmlFor="login-email">Email</label>
                                     <input type="email" id="login-email" placeholder="you@example.com"
@@ -133,15 +137,22 @@ export default function LoginPage() {
                                            onChange={handlePasswordChange}
                                     />
                                 </div>
-                                <div className="form-actions">
-                                    <button type="submit" className="btn btn-primary">
-                                        Sign In
-                                    </button>
+                                {/* condition ? first : second */}
+                                {loading ? (
+                                    <div className="form-actions">
+                                        Loading…
+                                    </div>
+                                ) : (
+                                    <div className="form-actions">
+                                        <button type="submit" className="btn btn-primary">
+                                            Sign In
+                                        </button>
 
-                                    <label htmlFor="tab-signup" className="btn btn-link">
-                                        Create Account
-                                    </label>
-                                </div>
+                                        <label htmlFor="tab-signup" className="btn btn-link">
+                                            Create Account
+                                        </label>
+                                    </div>
+                                )}
                             </form>
                         </section>
 
