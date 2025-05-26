@@ -58,7 +58,7 @@ public class UserController {
 //    }
 
     @GetMapping(value = "/{id}")
-    public User getUserById(@PathVariable long id) throws BootcampException {
+    public User getUserById(@PathVariable("id") long id, Authentication authentication) throws BootcampException {
         return userService.getUserById(id);
     }
 
@@ -87,7 +87,8 @@ public class UserController {
                 .issuer("self")
                 .issuedAt(now)
                 .expiresAt(now.plus(6, ChronoUnit.HOURS))
-                .subject(loggedInUser.getUsername())
+                .subject(String.valueOf(loggedInUser.getId()))
+//                .subject(loggedInUser.getUsername())
 //                .claim("roles", auth.getAuthorities().stream()
 //                        .map(a -> a.getAuthority()).toList())
                 .build();
@@ -102,7 +103,7 @@ public class UserController {
     }
 
     @PutMapping(value = "/{id}")
-    public User updateUser(@PathVariable long id, @RequestBody User user) throws BootcampException {
+    public User updateUser(@PathVariable ("id") long id, @RequestBody User user) throws BootcampException {
 
         if (user.getId() != null && user.getId() != id) {
             throw new BootcampException(HttpStatus.BAD_REQUEST, "User id must be the same as the path variable");
@@ -114,7 +115,7 @@ public class UserController {
     }
 
     @DeleteMapping(value = "/{id}")
-    public User deleteUser(@PathVariable long id) throws BootcampException {
+    public User deleteUser(@PathVariable ("id") long id) throws BootcampException {
 
         User deletedUser = userService.deleteById(id);
 

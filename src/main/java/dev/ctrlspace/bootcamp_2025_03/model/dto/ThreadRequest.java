@@ -7,9 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ChatMessage {
-    private String role;
-    private String content;
+public class ThreadRequest {
+    private String title;
+    private String completionModel;
 }
-
-

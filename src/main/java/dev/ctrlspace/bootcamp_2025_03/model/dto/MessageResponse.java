@@ -7,9 +7,11 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class ChatMessage {
-    private String role;
+public class MessageResponse {
+    private Long id;
     private String content;
+    private Boolean isCompletion = true;
+    private String completionModel;
+    private Long threadId;
+    private String threadName;
 }
-
-

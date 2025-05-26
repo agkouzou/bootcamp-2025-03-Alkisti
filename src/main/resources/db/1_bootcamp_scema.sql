@@ -1,3 +1,30 @@
+TRUNCATE TABLE
+    cart_items, orders, users, products,
+    messages, threads
+    RESTART IDENTITY CASCADE;
+
+CREATE TABLE IF NOT EXISTS threads (
+                                       id BIGSERIAL PRIMARY KEY,
+                                       title VARCHAR(255),
+                                       completion_model VARCHAR(255),
+                                       has_unread_messages BOOLEAN DEFAULT TRUE
+);
+
+-- ALTER TABLE threads
+--     ADD COLUMN IF NOT EXISTS completion_model VARCHAR(255),
+--     ADD COLUMN IF NOT EXISTS has_unread_messages BOOLEAN DEFAULT TRUE;
+
+CREATE TABLE IF NOT EXISTS messages (
+                                        id BIGSERIAL PRIMARY KEY,
+                                        content TEXT,
+                                        thread_id BIGINT NOT NULL,
+                                        is_completion BOOLEAN,
+                                        completion_model VARCHAR(255),
+                                        CONSTRAINT fk_thread FOREIGN KEY(thread_id) REFERENCES threads(id)
+);
+
+ALTER TABLE messages ALTER COLUMN content TYPE VARCHAR(2000);
+
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     email TEXT NOT NULL,

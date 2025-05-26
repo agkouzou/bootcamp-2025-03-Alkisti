@@ -1,5 +1,6 @@
 package dev.ctrlspace.bootcamp_2025_03.model;
 
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,13 +8,28 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Entity
+@Table(name = "messages")
 public class Message {
 
-    public long id;
-    public String content;
-    public long threadId;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private long id;
 
-    public Boolean isCompletion;
-    public String completionModel;
+    @Column(columnDefinition = "TEXT")
+    private String content;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "thread_id", nullable = false)
+    private Thread thread;
+
+    @Column(name = "is_completion")
+    private Boolean isCompletion;
+
+    @Column(name = "completion_model")
+    private String completionModel;
+
+    @Column(name = "thread_title")
+    private String threadTitle;
 
 }

@@ -99,9 +99,15 @@ public class UserService implements UserDetailsService {
         User existingUser = getUserById(userIdToUpdate);
 
         // Update existing user with the new user details
-        existingUser.setName(newUser.getName());
-        existingUser.setEmail(newUser.getEmail());
-        existingUser.setPassword(newUser.getPassword());
+        if (newUser.getName() != null) {
+            existingUser.setName(newUser.getName());
+        }
+        if (newUser.getEmail() != null) {
+            existingUser.setEmail(newUser.getEmail());
+        }
+        if (newUser.getPassword() != null) {
+            existingUser.setPassword(newUser.getPassword());
+        }
 
         existingUser = userRepository.save(existingUser);
 

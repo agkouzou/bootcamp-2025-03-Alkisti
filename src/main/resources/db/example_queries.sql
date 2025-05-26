@@ -32,7 +32,7 @@ order by name desc; -- asc
 -- Group by
 select password, count(1) as appearances_of_same_password
 from users
-GROUP BY password
+GROUP BY password;
 
 -- Having
 select password, count(1) as appearances_of_same_password
@@ -60,7 +60,7 @@ group by u.email;
 select u.email, count(1)
 from users u
          inner join orders o on u.id = o.user_id
-group by u.email
+group by u.email;
 
 
 select *
@@ -86,7 +86,7 @@ from users u
          inner join orders o on u.id = o.user_id
          inner join cart_items ci on o.id = ci.order_id
          inner join products p on p.id = ci.product_id
-group by o.id, o.status, u.email
+group by o.id, o.status, u.email;
 
 
 -- Sub-queries
