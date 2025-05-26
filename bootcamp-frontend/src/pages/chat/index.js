@@ -62,31 +62,35 @@ export default function ChatPage() {
 
         api.get("/threads")
             .then((res) => {
-                setThreads(res.data);
-                if (res.data.length > 0) {
-                    setSelectedThreadId(res.data[0].id);
+                const threads = res.data;
+                setThreads(threads);
+
+                if (threads.length > 0) {
+                    setSelectedThreadId(threads[0].id);
+                } else {
+                    setSelectedThreadId(null); // No threads to select
                 }
             })
-            .catch((err) => console.error("Error loading threads:", err));
+            .catch((err) => {
+                console.error("Error loading threads:", err);
+            });
     }, [token]);
 
     // Load messages when selectedThreadId changes
     useEffect(() => {
-        if (selectedThreadId) {
-            api.get(`/threads/${selectedThreadId}`)
-                .then(res => {
-                    setMessages(res.data.messages);
-                })
-            // api.get(`/threads/${selectedThreadId}/messages`)
-            //     .then(res => {
-            //         setMessages(res.data);
-            //     })
-                .catch(err => {
-                    console.error("Failed to load messages:", err);
-                });
-        } else {
-            setMessages([]);
+        if (!selectedThreadId) {
+            setMessages([]); // No thread selected
+            return;
         }
+
+        api.get(`/threads/${selectedThreadId}`)
+            .then(res => {
+                setMessages(res.data.messages);
+            })
+            .catch(err => {
+                console.error("Failed to load messages:", err);
+                setMessages([]);
+            });
     }, [selectedThreadId]);
 
     // Send message handler
@@ -197,6 +201,50 @@ export default function ChatPage() {
         }
     };
 
+    const handleDeleteThread = async (threadIdToDelete) => {
+        try {
+            await api.delete(`/threads/${threadIdToDelete}`);
+            const res = await api.get("/threads");
+
+            setThreads(res.data);
+
+            if (selectedThreadId === threadIdToDelete) {
+                if (res.data.length > 0) {
+                    setSelectedThreadId(res.data[0].id);
+                } else {
+                    setSelectedThreadId(null);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to delete thread:", err);
+        }
+    };
+
+    const handleDeleteMessageWithResponse = async (userMessageId) => {
+        try {
+            // Find the index of the user message
+            const userMessageIndex = messages.findIndex(msg => msg.id === userMessageId);
+            if (userMessageIndex === -1) return;
+
+            // Find the assistant response immediately after the user message
+            const assistantMessage = messages[userMessageIndex + 1];
+            // Delete the user message
+            await api.delete(`/messages/${userMessageId}`);
+
+            // If next message exists and is assistant's response, delete it too
+            if (assistantMessage && assistantMessage.isCompletion) {
+                await api.delete(`/messages/${assistantMessage.id}`);
+            }
+
+            // Update frontend state by removing both messages
+            setMessages(prevMessages => prevMessages.filter(
+                msg => msg.id !== userMessageId && msg.id !== (assistantMessage?.id)
+            ));
+        } catch (error) {
+            console.error("Failed to delete messages:", error);
+        }
+    };
+
     return (
         <>
             <Head>
@@ -228,17 +276,45 @@ export default function ChatPage() {
                     <aside className="threads-list">
                         <h2>Threads</h2>
                         <button onClick={createNewThread}>New Chat</button> {/* Button to create a new thread */}
-                        <div className="threads">
-                            {threads.map((thread) => (
-                                <div
-                                    key={thread.id}
-                                    className={`thread-item ${selectedThreadId === thread.id ? "active" : ""}`}
-                                    onClick={() => setSelectedThreadId(thread.id)}
-                                >
-                                    {thread.title}
-                                </div>
-                            ))}
-                        </div>
+                        {threads.length === 0 ? (
+                            <p>No threads yet. Start a new conversation!</p>
+                        ) : (
+                            <div className="threads">
+                                {threads.map((thread) => (
+                                    <div
+                                        key={thread.id}
+                                        className={`thread-item ${selectedThreadId === thread.id ? "active" : ""}`}
+                                        onClick={() => {
+                                            setSelectedThreadId(thread.id);
+                                            // Mark thread as read by clearing hasUnreadMessages immediately
+                                            setThreads((prevThreads) =>
+                                                prevThreads.map((t) =>
+                                                    t.id === thread.id ? { ...t, hasUnreadMessages: false } : t
+                                                )
+                                            );
+                                        }}
+                                    >
+                                        <span>
+                                            {thread.title.replace(/^["“]/, '')}
+                                            {thread.hasUnreadMessages && (
+                                                <span style={{ color: "red", marginLeft: "8px" }}>●</span>
+                                            )}
+                                        </span>
+
+                                        {/* Delete button */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent triggering thread select on delete
+                                                handleDeleteThread(thread.id);
+                                            }}
+                                            style={{ marginLeft: "10px", color: "red" }}
+                                        >
+                                            🗑️
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </aside>
                     <main className="main-container">
                         <div className="chat-window">
@@ -259,6 +335,16 @@ export default function ChatPage() {
                                     const isUser = !msg.isCompletion;
                                     const isEditing = editingMessageId === msg.id;
 
+                                    const handleCopy = () => {
+                                        navigator.clipboard.writeText(msg.content)
+                                            .then(() => {
+                                                alert("Copied to clipboard!");
+                                            })
+                                            .catch((err) => {
+                                                console.error("Failed to copy: ", err);
+                                            });
+                                    };
+
                                     return (
                                         <div key={msg.id} className={`message ${msg.isCompletion ? "bot" : "user"}`}>
                                             {isUser && isEditing ? (
@@ -267,9 +353,7 @@ export default function ChatPage() {
                                                         type="text"
                                                         value={editedContent}
                                                         onChange={(e) => setEditedContent(e.target.value)}
-                                                        onKeyDown={(e) =>
-                                                            e.key === "Enter" && handleUpdateMessage(msg.id)
-                                                        }
+                                                        onKeyDown={(e) => e.key === "Enter" && handleUpdateMessage(msg.id)}
                                                     />
                                                     <button onClick={() => handleUpdateMessage(msg.id)}>Save</button>
                                                     <button onClick={() => setEditingMessageId(null)}>Cancel</button>
@@ -277,16 +361,32 @@ export default function ChatPage() {
                                             ) : (
                                                 <>
                                                     {msg.content}
+                                                    <button
+                                                        onClick={handleCopy}
+                                                        style={{ marginLeft: "10px", cursor: "pointer" }}
+                                                        title="Copy message"
+                                                    >
+                                                        📋
+                                                    </button>
                                                     {isUser && (
-                                                        <button
-                                                            className="edit-button"
-                                                            onClick={() => {
-                                                                setEditingMessageId(msg.id);
-                                                                setEditedContent(msg.content);
-                                                            }}
-                                                        >
-                                                            ✎
-                                                        </button>
+                                                        <>
+                                                            <button
+                                                                className="edit-button"
+                                                                onClick={() => {
+                                                                    setEditingMessageId(msg.id);
+                                                                    setEditedContent(msg.content);
+                                                                }}
+                                                            >
+                                                                ✎
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteMessageWithResponse(msg.id)}
+                                                                style={{ marginLeft: "10px", color: "red", cursor: "pointer" }}
+                                                                title="Delete message and assistant response"
+                                                            >
+                                                                🗑️
+                                                            </button>
+                                                        </>
                                                     )}
                                                 </>
                                             )}
