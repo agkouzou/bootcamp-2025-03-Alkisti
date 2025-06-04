@@ -13,6 +13,7 @@ import dev.ctrlspace.bootcamp_2025_03.services.UserService;
 import org.hibernate.query.sqm.internal.NoParamSqmCopyContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -69,6 +70,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/users").permitAll()
+                        .requestMatchers("/login", "/users/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/users/password-reset-request").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/users/password-reset").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/users/password-reset").permitAll()
                         .anyRequest().authenticated()
                 )
                 .userDetailsService(userService)

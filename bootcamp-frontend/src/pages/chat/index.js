@@ -1,6 +1,7 @@
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { useRouter } from "next/router";
 
 function parseJwt(token) {
     try {
@@ -20,7 +21,9 @@ function parseJwt(token) {
 }
 
 export default function ChatPage() {
-    // All hooks declared first, unconditionally
+    const router = useRouter();
+    const threadIdFromUrl = router.query.threadId;
+
     const [isMounted, setIsMounted] = useState(false);
     const [token, setToken] = useState(null);
     const [userId, setUserId] = useState(null);
@@ -65,8 +68,19 @@ export default function ChatPage() {
                 const threads = res.data;
                 setThreads(threads);
 
-                if (threads.length > 0) {
+                // Use threadId from URL if valid
+                const threadIdFromUrl = router.query.threadId;
+                const threadId = parseInt(threadIdFromUrl, 10);
+
+                if (threadId && threads.some(t => t.id === threadId)) {
+                    setSelectedThreadId(threadId);
+                } else if (threads.length > 0) {
+                // if (threads.length > 0) {
                     setSelectedThreadId(threads[0].id);
+                    router.replace({
+                        pathname: '/chat',
+                        query: { threadId: threads[0].id },
+                    });
                 } else {
                     setSelectedThreadId(null); // No threads to select
                 }
@@ -78,7 +92,8 @@ export default function ChatPage() {
 
     // Load messages when selectedThreadId changes
     useEffect(() => {
-        if (!selectedThreadId) {
+        if (!selectedThreadId || !token) {
+            // if (!selectedThreadId) {
             setMessages([]); // No thread selected
             return;
         }
@@ -91,7 +106,8 @@ export default function ChatPage() {
                 console.error("Failed to load messages:", err);
                 setMessages([]);
             });
-    }, [selectedThreadId]);
+    }, [selectedThreadId, token]);
+    // }, [selectedThreadId]);
 
     // Send message handler
     const handleSendMessage = async () => {
@@ -102,26 +118,27 @@ export default function ChatPage() {
 
             // Auto-create thread if none selected
             if (!threadId) {
-                // const threadResponse = await api.post("/threads", {
-                //     title: "New Chat Thread",
-                //     completionModel: selectedModel,
-                // });
-                const threadPayload = {
+                const threadResponse = await api.post("/threads", {
                     title: "",
-                    // initialMessageContent: newMessage,
                     completionModel: selectedModel,
-                };
+                });
+                // const threadPayload = {
+                //     title: "",
+                //     // initialMessageContent: newMessage,
+                //     completionModel: selectedModel,
+                // };
 
                 // // Only include model if selected
                 // if (selectedModel) {
                 //     threadPayload.completionModel = selectedModel;
                 // }
 
-                const threadResponse = await api.post("/threads", threadPayload);
+                // const threadResponse = await api.post("/threads", threadPayload);
 
                 threadId = threadResponse.data.id;
                 setThreads((prev) => [...prev, threadResponse.data]);
                 setSelectedThreadId(threadId);
+                router.push(`/chat?threadId=${threadId}`);
             }
 
             // Send message
@@ -156,10 +173,10 @@ export default function ChatPage() {
         }
     };
 
-    // Avoid rendering before mount + token loaded
-    if (!isMounted) {
-        return null;
-    }
+    // // Avoid rendering before mount + token loaded
+    // if (!isMounted) {
+    //     return null;
+    // }
 
     const handleUpdateMessage = async (id) => {
         try {
@@ -194,8 +211,10 @@ export default function ChatPage() {
                 title: response.data.title || "New Chat", // Only for display, not DB
             };
 
-            setThreads((prevThreads) => [...prevThreads, threadWithFallbackTitle]);
+            setThreads((prev) => [...prev, threadWithFallbackTitle]);
+            // setThreads((prevThreads) => [...prevThreads, threadWithFallbackTitle]);
             setSelectedThreadId(response.data.id);
+            router.push(`/chat?threadId=${response.data.id}`);
         } catch (error) {
             console.error("Error creating new thread:", error);
         }
@@ -211,8 +230,10 @@ export default function ChatPage() {
             if (selectedThreadId === threadIdToDelete) {
                 if (res.data.length > 0) {
                     setSelectedThreadId(res.data[0].id);
+                    router.replace(`/chat?threadId=${newId}`);
                 } else {
                     setSelectedThreadId(null);
+                    router.replace(`/chat`);
                 }
             }
         } catch (err) {
@@ -232,8 +253,15 @@ export default function ChatPage() {
             await api.delete(`/messages/${userMessageId}`);
 
             // If next message exists and is assistant's response, delete it too
-            if (assistantMessage && assistantMessage.isCompletion) {
-                await api.delete(`/messages/${assistantMessage.id}`);
+            if (assistantMessage?.isCompletion) {
+                try {
+                    await api.delete(`/messages/${assistantMessage.id}`);
+                } catch (err) {
+                    if (err?.response?.status !== 404) {
+                        throw err; // rethrow if it's not a 404
+                    }
+                    // else ignore 404
+                }
             }
 
             // Update frontend state by removing both messages
@@ -242,6 +270,43 @@ export default function ChatPage() {
             ));
         } catch (error) {
             console.error("Failed to delete messages:", error);
+        }
+    };
+
+    if (!isMounted) return null;
+
+    // Example of making an API call with Authorization token
+    const getMessages = async (threadId) => {
+        try {
+            const authToken = localStorage.getItem('authToken');
+            const response = await axios.get(`/threads/${threadId}/messages`, {
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                }
+            });
+            // Handle the response (e.g., update UI with messages)
+        } catch (error) {
+            console.error("Error fetching messages", error);
+            // Handle error (e.g., show error message)
+        }
+    };
+
+    const createMessage = async (threadId, messageContent) => {
+        const authToken = localStorage.getItem('authToken');
+
+        try {
+            const response = await axios.post(`/threads/${threadId}/messages`, {
+                content: messageContent,  // Assuming content is being sent in this way
+            }, {
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                }
+            });
+
+            // Handle the response, maybe update UI with new message
+        } catch (error) {
+            console.error("Error creating message", error);
+            // Handle error
         }
     };
 
@@ -285,6 +350,7 @@ export default function ChatPage() {
                                         key={thread.id}
                                         className={`thread-item ${selectedThreadId === thread.id ? "active" : ""}`}
                                         onClick={() => {
+                                            router.push(`/chat?threadId=${thread.id}`);
                                             setSelectedThreadId(thread.id);
                                             // Mark thread as read by clearing hasUnreadMessages immediately
                                             setThreads((prevThreads) =>
@@ -341,7 +407,7 @@ export default function ChatPage() {
                                                 alert("Copied to clipboard!");
                                             })
                                             .catch((err) => {
-                                                console.error("Failed to copy: ", err);
+                                                console.error("Copy failed: ", err);
                                             });
                                     };
 
@@ -363,15 +429,15 @@ export default function ChatPage() {
                                                     {msg.content}
                                                     <button
                                                         onClick={handleCopy}
-                                                        style={{ marginLeft: "10px", cursor: "pointer" }}
-                                                        title="Copy message"
+                                                        // style={{ marginLeft: "10px", cursor: "pointer" }}
+                                                        // title="Copy message"
                                                     >
                                                         📋
                                                     </button>
                                                     {isUser && (
                                                         <>
                                                             <button
-                                                                className="edit-button"
+                                                                // className="edit-button"
                                                                 onClick={() => {
                                                                     setEditingMessageId(msg.id);
                                                                     setEditedContent(msg.content);
@@ -381,8 +447,9 @@ export default function ChatPage() {
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDeleteMessageWithResponse(msg.id)}
-                                                                style={{ marginLeft: "10px", color: "red", cursor: "pointer" }}
-                                                                title="Delete message and assistant response"
+                                                                style={{ color: "red" }}
+                                                                // style={{ marginLeft: "10px", color: "red", cursor: "pointer" }}
+                                                                // title="Delete message and assistant response"
                                                             >
                                                                 🗑️
                                                             </button>

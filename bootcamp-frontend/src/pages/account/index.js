@@ -132,6 +132,38 @@ export default function AccountPage() {
         }
     };
 
+    const getUserInfo = async () => {
+        const authToken = localStorage.getItem('authToken');
+
+        try {
+            const response = await axios.get('/user/profile', {
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                },
+            });
+            // Use the response data (e.g., show user name, email, etc.)
+        } catch (error) {
+            console.error("Error fetching user info", error);
+            // Handle error (e.g., show error message)
+        }
+    };
+
+    const updateProfile = async (updatedUserInfo) => {
+        const authToken = localStorage.getItem('authToken');
+
+        try {
+            const response = await axios.put('/user/profile', updatedUserInfo, {
+                headers: {
+                    Authorization: `Bearer ${authToken}`,
+                },
+            });
+            // Handle successful response, update UI accordingly
+        } catch (error) {
+            console.error("Error updating profile", error);
+            // Handle error
+        }
+    };
+
     return (
         <>
             <Head>

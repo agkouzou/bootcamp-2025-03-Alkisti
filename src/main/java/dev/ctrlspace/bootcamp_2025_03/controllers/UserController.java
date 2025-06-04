@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/users")
@@ -35,11 +37,12 @@ public class UserController {
         this.jwtEncoder = jwtEncoder;
     }
 
-    @GetMapping("")
-    public List<User> getUsers() {
-        logger.debug("Get all users from UserController");
-        return userService.getUsers();
-    }
+//    Remove this method to prevent fetching all users
+//    @GetMapping("")
+//    public List<User> getUsers() {
+//        logger.debug("Get all users from UserController");
+//        return userService.getUsers();
+//    }
 
     //    HTTP GET /users/1   <- Rest APIs
 //    With Response Entity
@@ -59,13 +62,49 @@ public class UserController {
 
     @GetMapping(value = "/{id}")
     public User getUserById(@PathVariable("id") long id, Authentication authentication) throws BootcampException {
+
+        Jwt jwt = (Jwt) authentication.getPrincipal();  // Cast principal to Jwt
+        Long authenticatedUserId = Long.valueOf(jwt.getClaimAsString("sub")); // extract "sub" claim
+
+        if (!authenticatedUserId.equals(id)) {
+            throw new BootcampException(HttpStatus.FORBIDDEN, "You do not have permission to update this user");
+        }
+
         return userService.getUserById(id);
     }
 
 //    HTTP GET /users?id=1
     @GetMapping(value = "", params = "id")
-    public User getUserByParamId(@RequestParam long id) throws BootcampException {
+    public User getUserByParamId(@RequestParam long id, Authentication authentication) throws BootcampException {
+
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        Long authenticatedUserId = Long.valueOf(jwt.getClaimAsString("sub"));
+
+        if (!authenticatedUserId.equals(id)) {
+            throw new BootcampException(HttpStatus.FORBIDDEN, "You do not have permission to update this user");
+        }
+
         return userService.getUserById(id);
+    }
+
+    @GetMapping("")
+    public User getCurrentUser(Authentication authentication) throws BootcampException {
+
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        Long authenticatedUserId = Long.valueOf(jwt.getClaimAsString("sub"));
+
+        return userService.getUserById(authenticatedUserId);
+    }
+
+    @GetMapping("/verify")
+    public String verifyUser(@RequestParam("token") String token) throws BootcampException {
+        boolean verified = userService.verifyToken(token);
+
+        if (verified) {
+            return "Email verified!";
+        } else {
+            throw new BootcampException(HttpStatus.BAD_REQUEST, "Invalid or expired token.");
+        }
     }
 
     @PostMapping(value = "")
@@ -80,7 +119,17 @@ public class UserController {
     @PostMapping("/login")
     public TokenDTO login(Authentication authentication) throws BootcampException {
 
-        User loggedInUser = ((User)authentication.getPrincipal());
+        String email = authentication.getName();
+        User loggedInUser = userService.getUserByEmail(email);
+
+        if (loggedInUser == null) {
+            throw new BootcampException(HttpStatus.UNAUTHORIZED, "User not found.");
+        }
+
+        if (!loggedInUser.isVerified()) {
+            throw new BootcampException(HttpStatus.UNAUTHORIZED, "Please verify your email before logging in.");
+        }
+
         // 2) Build JWT claims
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()
@@ -88,6 +137,7 @@ public class UserController {
                 .issuedAt(now)
                 .expiresAt(now.plus(6, ChronoUnit.HOURS))
                 .subject(String.valueOf(loggedInUser.getId()))
+                .claim("user_id", loggedInUser.getId())
 //                .subject(loggedInUser.getUsername())
 //                .claim("roles", auth.getAuthorities().stream()
 //                        .map(a -> a.getAuthority()).toList())
@@ -103,7 +153,14 @@ public class UserController {
     }
 
     @PutMapping(value = "/{id}")
-    public User updateUser(@PathVariable ("id") long id, @RequestBody User user) throws BootcampException {
+    public User updateUser(@PathVariable ("id") long id, @RequestBody User user, Authentication authentication) throws BootcampException {
+
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        Long authenticatedUserId = Long.valueOf(jwt.getClaimAsString("sub"));
+
+        if (!authenticatedUserId.equals(id)) {
+            throw new BootcampException(HttpStatus.FORBIDDEN, "You do not have permission to update this user");
+        }
 
         if (user.getId() != null && user.getId() != id) {
             throw new BootcampException(HttpStatus.BAD_REQUEST, "User id must be the same as the path variable");
@@ -115,7 +172,14 @@ public class UserController {
     }
 
     @DeleteMapping(value = "/{id}")
-    public User deleteUser(@PathVariable ("id") long id) throws BootcampException {
+    public User deleteUser(@PathVariable ("id") long id, Authentication authentication) throws BootcampException {
+
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        Long authenticatedUserId = Long.valueOf(jwt.getClaimAsString("sub"));
+
+        if (!authenticatedUserId.equals(id)) {
+            throw new BootcampException(HttpStatus.FORBIDDEN, "You do not have permission to update this user");
+        }
 
         User deletedUser = userService.deleteById(id);
 
@@ -124,4 +188,39 @@ public class UserController {
 
     }
 
+    @PatchMapping("/change-password")
+    public Map<String, String> changePassword(
+            @RequestBody Map<String, String> payload,
+            Authentication authentication) throws BootcampException {
+
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        Long authenticatedUserId = Long.valueOf(jwt.getClaimAsString("sub"));
+
+        String oldPassword = payload.get("oldPassword");
+        String newPassword = payload.get("newPassword");
+
+        userService.changePassword(authenticatedUserId, oldPassword, newPassword);
+
+        return Map.of("message", "Password changed successfully.");
+    }
+
+    @PostMapping("/password-reset-request")
+    public void requestPasswordReset(@RequestBody Map<String, String> payload) throws BootcampException {
+        String email = payload.get("email");
+        userService.initiatePasswordReset(email);
+    }
+
+    @PostMapping("/password-reset")
+    public Map<String, String> resetPassword(@RequestBody Map<String, String> payload) throws BootcampException {
+        String token = payload.get("token");
+        String newPassword = payload.get("newPassword");
+        userService.resetPassword(token, newPassword);
+
+        return Map.of("message", "Password reset successful. You can now log in with your new password.");
+    }
+
+    @GetMapping("/password-reset")
+    public String showResetInstructions() {
+        return "Your password reset link is valid. You can now close this page and proceed to submitting your new password.";
+    }
 }

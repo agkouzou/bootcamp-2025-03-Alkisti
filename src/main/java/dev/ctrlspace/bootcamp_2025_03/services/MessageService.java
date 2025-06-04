@@ -11,9 +11,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -37,7 +41,18 @@ public class MessageService {
     @Autowired
     private ThreadRepository threadRepository;
 
-    public MessageResponse createMessageAndGetCompletion(MessageRequest request) throws BootcampException {
+    public void checkThreadOwnership(Long threadId, Authentication authentication) throws BootcampException {
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        String userIdStr = jwt.getClaim("sub");
+        Long userId = Long.parseLong(userIdStr);
+
+        boolean isOwner = threadRepository.existsByIdAndUserId(threadId, userId);
+        if (!isOwner) {
+            throw new BootcampException(HttpStatus.FORBIDDEN, "You do not have access to this thread.");
+        }
+    }
+
+    public MessageResponse createMessageAndGetCompletion(MessageRequest request, Authentication authentication) throws BootcampException {
         Thread thread;
 
         try {
@@ -47,9 +62,14 @@ public class MessageService {
             }
 
             thread = threadOpt.get();
+
+            checkThreadOwnership(thread.getId(), authentication);
+
             String model = (request.getCompletionModel() != null && !request.getCompletionModel().isBlank())
                     ? request.getCompletionModel()
                     : groqDefaultModel;
+
+            model = model.toLowerCase();
 
             // Step 1: Create and save the new user message
             Message newMessage = new Message();
@@ -57,7 +77,8 @@ public class MessageService {
             newMessage.setIsCompletion(false);
             newMessage.setCompletionModel(model);
             newMessage.setThread(thread);
-            newMessage.setThreadTitle(thread.getTitle());
+            newMessage.setCreatedAt(Instant.now());
+            newMessage.setUpdatedAt(Instant.now());
 
             messageRepository.save(newMessage);
 
@@ -92,20 +113,7 @@ public class MessageService {
                         }
 
                         thread.setTitle(generatedTitle);
-//                        threadRepository.save(thread); // Save updated title
-
-                        final String finalGeneratedTitle = generatedTitle; // Make the title final so it can be used in lambda
-
-                        // Step 8: Backfill all messages in thread missing threadTitle
-                        List<Message> allMessagesInThread = messageRepository.findByThreadIdOrderByIdAsc(thread.getId());
-
-                        List<Message> messagesToUpdate = allMessagesInThread.stream()
-                                .filter(msg -> msg.getThreadTitle() == null || msg.getThreadTitle().isBlank())
-                                .peek(msg -> msg.setThreadTitle(finalGeneratedTitle))
-                                .collect(Collectors.toList());
-
-                        // Step 9: Save all updated messages at once
-                        messageRepository.saveAll(messagesToUpdate);
+                        threadRepository.save(thread); // Save updated title
 
                     } catch (Exception e) {
                         e.printStackTrace(); // Fail gracefully
@@ -114,15 +122,15 @@ public class MessageService {
             }
 
             threadRepository.save(thread);
+            return toDto(responseMessage);
 
-            return new MessageResponse(
-                    responseMessage.getId(),
-                    responseMessage.getContent(),
-                    responseMessage.getIsCompletion(),
-                    responseMessage.getCompletionModel(),
-                    responseMessage.getThread().getId(),
-                    thread.getTitle()
-            );
+//            return new MessageResponse(
+//                    responseMessage.getId(),
+//                    responseMessage.getContent(),
+//                    responseMessage.getIsCompletion(),
+//                    responseMessage.getCompletionModel(),
+//                    responseMessage.getThread().getId()
+//            );
 
         } catch (BootcampException be) {
             throw be;
@@ -132,9 +140,11 @@ public class MessageService {
         }
     }
 
-    public MessageResponse updateMessage(Long id, MessageRequest updatedMessage) throws BootcampException {
+    public MessageResponse updateMessage(Long id, MessageRequest updatedMessage, Authentication authentication) throws BootcampException {
         Message existing = messageRepository.findById(id)
                 .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "Message not found with id: " + id));
+
+        checkThreadOwnership(existing.getThread().getId(), authentication);
 
         existing.setContent(updatedMessage.getContent());
         existing.setCompletionModel(
@@ -142,6 +152,7 @@ public class MessageService {
                         ? updatedMessage.getCompletionModel()
                         : existing.getCompletionModel()
         );
+        existing.setUpdatedAt(Instant.now());
         messageRepository.save(existing);
 
         if (Boolean.TRUE.equals(updatedMessage.getRegenerate()) && !existing.getIsCompletion()) {
@@ -172,27 +183,28 @@ public class MessageService {
 
             Message responseMessage = generateCompletion(boundedHistory, existing.getCompletionModel(), existing.getThread());
 
-            return new MessageResponse(
-                    responseMessage.getId(),
-                    responseMessage.getContent(),
-                    responseMessage.getIsCompletion(),
-                    responseMessage.getCompletionModel(),
-                    responseMessage.getThread().getId(),
-                    responseMessage.getThread().getTitle()
-            );
+            return toDto(responseMessage);
+//            return new MessageResponse(
+//                    responseMessage.getId(),
+//                    responseMessage.getContent(),
+//                    responseMessage.getIsCompletion(),
+//                    responseMessage.getCompletionModel(),
+//                    responseMessage.getThread().getId()
+//            );
         }
 
-        return new MessageResponse(
-                existing.getId(),
-                existing.getContent(),
-                existing.getIsCompletion(),
-                existing.getCompletionModel(),
-                existing.getThread().getId(),
-                existing.getThread().getTitle()
-        );
+        return toDto(existing);
+
+//        return new MessageResponse(
+//                existing.getId(),
+//                existing.getContent(),
+//                existing.getIsCompletion(),
+//                existing.getCompletionModel(),
+//                existing.getThread().getId()
+//        );
     }
 
-    public List<MessageResponse> getMessagesByThreadId(Long threadId) throws BootcampException {
+    public List<MessageResponse> getMessagesByThreadId(Long threadId, Authentication authentication) throws BootcampException {
         if (!threadRepository.existsById(threadId)) {
             throw new BootcampException(HttpStatus.NOT_FOUND, "Thread not found with ID: " + threadId);
         }
@@ -200,52 +212,59 @@ public class MessageService {
         Thread thread = threadRepository.findById(threadId).orElseThrow(() ->
                 new BootcampException(HttpStatus.NOT_FOUND, "Thread not found with ID: " + threadId)
         );
-        String threadTitle = thread.getTitle(); // Fetch once, reuse
+
+        checkThreadOwnership(thread.getId(), authentication);
 
         List<Message> messages = messageRepository.findByThreadIdOrderByIdAsc(threadId);
         List<MessageResponse> result = new ArrayList<>();
         for (Message m : messages) {
-            // Fetch the thread associated with the message to get the thread title
-//            String threadName = m.getThread() != null ? m.getThread().getTitle() : "No Title";
+            result.add(toDto(m));
 
-            // Add the message along with the thread name
-            result.add(new MessageResponse(
-                    m.getId(),
-                    m.getContent(),
-                    m.getIsCompletion(),
-                    m.getCompletionModel(),
-                    threadId,
-                    threadTitle
-//                    m.getThread().getId(),
-//                    threadName
-            ));
+//            // Add the message along with the thread name
+//            result.add(new MessageResponse(
+//                    m.getId(),
+//                    m.getContent(),
+//                    m.getIsCompletion(),
+//                    m.getCompletionModel(),
+//                    threadId
+//            ));
         }
 
         return result;
     }
 
-    public MessageResponse getMessageById(Long id) throws BootcampException {
+    public MessageResponse getMessageById(Long id, Authentication authentication) throws BootcampException {
         Message m = messageRepository.findById(id)
                 .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "Message not found with id: " + id));
 
-        Long threadId = m.getThread() != null ? m.getThread().getId() : null;
-        String threadTitle = (m.getThread() != null && m.getThread().getTitle() != null) ? m.getThread().getTitle() : "";
+        checkThreadOwnership(m.getThread().getId(), authentication);
 
-        return new MessageResponse(
-                m.getId(),
-                m.getContent(),
-                m.getIsCompletion(),
-                m.getCompletionModel(),
-                threadId,
-                threadTitle
-        );
+        return toDto(m);
+
+//        Long threadId = m.getThread() != null ? m.getThread().getId() : null;
+//
+//        return new MessageResponse(
+//                m.getId(),
+//                m.getContent(),
+//                m.getIsCompletion(),
+//                m.getCompletionModel(),
+//                threadId
+//        );
 
     }
 
-    public void deleteMessage(Long id) throws BootcampException {
-        if (!messageRepository.existsById(id)) {
-            throw new BootcampException(HttpStatus.NOT_FOUND, "Message not found with id: " + id);
+    public void deleteMessage(Long id, Authentication authentication) throws BootcampException {
+        Message message = messageRepository.findById(id)
+                .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "Message not found with id: " + id));
+
+        checkThreadOwnership(message.getThread().getId(), authentication);
+
+        if (!message.getIsCompletion()) {
+            // If it's a user message, try to find and delete its assistant response
+            Optional<Message> assistantReply = findAssistantResponseFor(message);
+            assistantReply.ifPresent(reply -> messageRepository.deleteById(reply.getId()));
         }
+
         messageRepository.deleteById(id);
     }
 
@@ -300,9 +319,8 @@ public class MessageService {
         responseMessage.setContent(response.getChoices().get(0).getMessage().getContent());
         responseMessage.setCompletionModel(response.getModel());
         responseMessage.setThread(thread);
-
-        String threadTitle = thread.getTitle() != null ? thread.getTitle() : "";
-        responseMessage.setThreadTitle(threadTitle);
+        responseMessage.setCreatedAt(Instant.now());
+        responseMessage.setUpdatedAt(Instant.now());
 
         // save responseMessage message in DB
 
@@ -358,5 +376,23 @@ public class MessageService {
             e.printStackTrace();
             return "New Chat Thread";
         }
+    }
+
+    private MessageResponse toDto(Message message) {
+        return new MessageResponse(
+                message.getId(),
+                message.getContent(),
+                message.getIsCompletion(),
+                message.getCompletionModel(),
+                message.getThread().getId(),
+                message.getCreatedAt(),
+                message.getUpdatedAt()
+        );
+    }
+
+    public Optional<Message> findAssistantResponseFor(Message userMessage) {
+        return messageRepository.findFirstByThreadIdAndUpdatedAtAfterAndIsCompletionTrueOrderByUpdatedAtAsc(
+                userMessage.getThread().getId(), userMessage.getUpdatedAt()
+        );
     }
 }

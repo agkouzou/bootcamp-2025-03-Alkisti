@@ -81,6 +81,25 @@ export default function LoginPage() {
 
     }
 
+    const login = async (credentials) => {
+        try {
+            const response = await axios.post('/login', {
+                email: credentials.email,   // Or `username` based on backend changes
+                password: credentials.password,
+            });
+
+            // Assuming the backend responds with a token
+            localStorage.setItem('authToken', response.data.token); // Store the token
+
+            // Redirect or update UI accordingly
+            navigateToHomePage();
+        } catch (error) {
+            console.error("Login failed", error);
+            // Handle error display to user
+        }
+    };
+
+
 
 
 

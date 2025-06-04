@@ -10,10 +10,6 @@ CREATE TABLE IF NOT EXISTS threads (
                                        has_unread_messages BOOLEAN DEFAULT TRUE
 );
 
--- ALTER TABLE threads
---     ADD COLUMN IF NOT EXISTS completion_model VARCHAR(255),
---     ADD COLUMN IF NOT EXISTS has_unread_messages BOOLEAN DEFAULT TRUE;
-
 CREATE TABLE IF NOT EXISTS messages (
                                         id BIGSERIAL PRIMARY KEY,
                                         content TEXT,
@@ -29,8 +25,13 @@ CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     email TEXT NOT NULL,
     password TEXT NOT NULL,
-    name TEXT
+    name TEXT,
+    verified BOOLEAN DEFAULT FALSE,
+    verification_token TEXT
 );
+
+DELETE FROM users
+WHERE email = 'a.gkouzou@gmail.com';
 
 CREATE TABLE IF NOT EXISTS products (
                                         id BIGSERIAL PRIMARY KEY,
@@ -60,17 +61,17 @@ CREATE TABLE IF NOT EXISTS cart_items (
 );
 
 -- Create test users
-INSERT INTO users (email, password, name)
-VALUES ('csekas@ctrlspace.dev', '123456', 'Chris Sekas');
+INSERT INTO users (email, password, name, verified, verification_token)
+VALUES ('csekas@ctrlspace.dev', '123456', 'Chris Sekas', true, null);
 
-INSERT INTO users (email, password, name)
-VALUES ('alkisti@ctrlspace.dev', '123456', 'Alkisti');
+INSERT INTO users (email, password, name, verified, verification_token)
+VALUES ('alkisti@ctrlspace.dev', '123456', 'Alkisti', true, null);
 
-INSERT INTO users (email, password, name)
-VALUES ('nick@ctrlspace.dev', '123456789', 'Nick');
+INSERT INTO users (email, password, name, verified, verification_token)
+VALUES ('nick@ctrlspace.dev', '123456789', 'Nick', true, null);
 
-INSERT INTO users (email, password, name)
-VALUES ('george@ctrspace.dev', '43f43gt45', 'George');
+INSERT INTO users (email, password, name, verified, verification_token)
+VALUES ('george@ctrlspace.dev', '43f43gt45', 'George', true, null);
 
 -- Create test products
 INSERT INTO products (name, price, stock)

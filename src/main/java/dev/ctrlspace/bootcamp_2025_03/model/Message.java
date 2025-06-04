@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -29,7 +31,21 @@ public class Message {
     @Column(name = "completion_model")
     private String completionModel;
 
-    @Column(name = "thread_title")
-    private String threadTitle;
+    @Column(nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @Column(nullable = false)
+    private Instant updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = Instant.now();
+        updatedAt = Instant.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
 
 }
