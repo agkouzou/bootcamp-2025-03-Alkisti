@@ -1,6 +1,7 @@
 import Head from "next/head";
-import {useEffect, useState} from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
+import { useRouter } from "next/router";
 
 
 /**
@@ -14,26 +15,48 @@ import axios from "axios";
  */
 export default function LoginPage() {
 
-    let surname = "Sekas"
+    // let surname = "Sekas"
 
-    const [email, setEmail] = useState(null);
-    const [password, setPassword] = useState(null);
-    const [loading, setLoading] = useState(false)
-
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState("");
+    const [signupName, setSignupName] = useState("");
+    const [signupEmail, setSignupEmail] = useState("");
+    const [signupPassword, setSignupPassword] = useState("");
+    const [signupConfirm, setSignupConfirm] = useState("");
+    const [signupLoading, setSignupLoading] = useState(false);
+    const [signupMessage, setSignupMessage] = useState(null);
+    const router = useRouter();
 
     useEffect(() => {
 
+        // Check if user is already logged in
+        let authToken = localStorage.getItem("authToken");
 
-        let token = localStorage.getItem("token");
-
-        if (token != null) {
+        if (authToken != null) {
             window.location.href = "/chat";
         }
-    }, []);
 
+        // If a token is in the URL, attempt to verify it
+        const { token } = router.query;
+        if (token) {
+            axios
+                .get(`http://localhost:8080/users/verify?token=${token}`)
+                .then(() => {
+                    setMessage("Email successfully verified! You can now log in.");
+                    setTimeout(() => {
+                        router.push("/login");
+                    }, 2000);
+                })
+                .catch(() => {
+                    alert("Verification failed. Please try again.");
+                });
+        }
+    }, [router.query]);
 
     function handleEmailChange(event) {
-        console.log("Email changed to: ", event.target.value);
+        // console.log("Email changed to: ", event.target.value);
         setEmail(event.target.value);
     }
 
@@ -41,8 +64,16 @@ export default function LoginPage() {
         setPassword(event.target.value);
     }
 
-    async function handleLogin() {
+    async function handleLogin(e) {
+        e.preventDefault();
+        setMessage("");
         setLoading(true);
+
+        if (!email || !password) {
+            setMessage("Please enter email and password.");
+            setLoading(false);
+            return;
+        }
 
         let credentials = btoa(email + ":" + password);
 
@@ -50,56 +81,117 @@ export default function LoginPage() {
 
             let response = await axios.post(
                 "http://localhost:8080/users/login",
-                {},                            // no body
+                {}, // No body
                 {
                     headers: {
                         "Authorization": `Basic ${credentials}`,
                         "Content-Type": "application/json"
                     }
                 }
-            )
+            );
 
-            console.log("Login successful");
-            // Store token in local storage
-            localStorage.setItem("token", response.data.token);
+            // console.log("Login successful");
+            // Store token in local storage after successful login
+            localStorage.setItem("authToken", response.data.token);
 
-            setLoading(false);
+            // setLoading(false);
             // Redirect to chat page
             window.location.href = "/chat";
 
         } catch (e) {
-            console.log("Login failed");
-            alert("Login failed. Please check your email and password.");
-            setEmail(null)
-            setPassword(null)
+            // console.log("Login failed");
+            setMessage("Login failed. Please check your email and password.");
+            setEmail("");
+            setPassword("");
             setLoading(false);
         }
 
 
-        console.log("Response: ", response.data);
+        // console.log("Response: ", response.data);
 
 
     }
 
-    const login = async (credentials) => {
+    // const login = async (credentials) => {
+    //     try {
+    //         const response = await axios.post('/login', {
+    //             email: credentials.email,   // Or `username` based on backend changes
+    //             password: credentials.password,
+    //         });
+    //
+    //         // Assuming the backend responds with a token
+    //         localStorage.setItem('authToken', response.data.token); // Store the token
+    //
+    //         // Redirect or update UI accordingly
+    //         navigateToHomePage();
+    //     } catch (error) {
+    //         console.error("Login failed", error);
+    //         // Handle error display to user
+    //     }
+    // };
+
+    // Signup handlers
+    function handleSignupNameChange(e) {
+        setSignupName(e.target.value);
+    }
+
+    function handleSignupEmailChange(e) {
+        setSignupEmail(e.target.value);
+    }
+
+    function handleSignupPasswordChange(e) {
+        setSignupPassword(e.target.value);
+    }
+
+    function handleSignupConfirmChange(e) {
+        setSignupConfirm(e.target.value);
+    }
+
+    async function handleSignup(e) {
+        e.preventDefault();
+        setSignupLoading(true);
+
+        if (!signupName || !signupEmail || !signupPassword || !signupConfirm) {
+            setSignupMessage("Please fill in all signup fields.");
+            setSignupLoading(false);
+            return;
+        }
+
+        if (signupPassword !== signupConfirm) {
+            setSignupMessage("Passwords do not match.");
+            setSignupLoading(false);
+            return;
+        }
+
         try {
-            const response = await axios.post('/login', {
-                email: credentials.email,   // Or `username` based on backend changes
-                password: credentials.password,
+            await axios.post("http://localhost:8080/users", {
+                name: signupName,
+                email: signupEmail,
+                password: signupPassword,
             });
 
-            // Assuming the backend responds with a token
-            localStorage.setItem('authToken', response.data.token); // Store the token
+            setSignupMessage(
+                <>
+                    Account created! Please check your inbox to verify your email.
+                    <br />
+                    You’ll be redirected to the login page shortly...
+                </>
+            );
 
-            // Redirect or update UI accordingly
-            navigateToHomePage();
+            setSignupName("");
+            setSignupEmail("");
+            setSignupPassword("");
+            setSignupConfirm("");
+            setSignupLoading(false);
+
+            setTimeout(() => {
+                window.location.href = "/login";
+            }, 3000);
         } catch (error) {
-            console.error("Login failed", error);
-            // Handle error display to user
+            setSignupMessage("Signup failed. Try again.");
+            setSignupLoading(false);
         }
-    };
-
-
+    }
 
 
 
@@ -118,23 +210,28 @@ export default function LoginPage() {
                             <img src="./bootcamp-2025.03-logo.jpg" alt="Logo" className="header-logo"/>
                             <div className="header-title">Chat Application</div>
                         </div>
-                        <div className="profile-dropdown">
-                            <input type="checkbox" id="profile-toggle"/>
-                            <label htmlFor="profile-toggle" className="profile-icon">JD</label>
-                            <div className="dropdown-menu">
-                                <a href="#">Profile</a>
-                                <a href="#">Settings</a>
-                                <a href="#">Logout</a>
-                            </div>
-                            <label htmlFor="profile-toggle" className="overlay"></label>
-                        </div>
+                        {/*<div className="profile-dropdown">*/}
+                        {/*    <input type="checkbox" id="profile-toggle"/>*/}
+                        {/*    <label htmlFor="profile-toggle" className="profile-icon">JD</label>*/}
+                        {/*    <div className="dropdown-menu">*/}
+                        {/*        <a href="#">Account Settings</a>*/}
+                        {/*        <a href="#">Change Password</a>*/}
+                        {/*        <a href="/login" onClick={(e) => {*/}
+                        {/*            e.preventDefault();*/}
+                        {/*            handleLogout();*/}
+                        {/*        }}>*/}
+                        {/*            Logout*/}
+                        {/*        </a>*/}
+                        {/*    </div>*/}
+                        {/*    <label htmlFor="profile-toggle" className="overlay"></label>*/}
+                        {/*</div>*/}
                     </div>
                 </header>
 
                 <div className="content">
                     <div className="tab-container">
-                        <input type="radio" id="tab-login" name="tab" checked/>
-                        <input type="radio" id="tab-signup" name="tab"/>
+                        <input type="radio" id="tab-login" name="tab" defaultChecked />
+                        <input type="radio" id="tab-signup" name="tab" />
                         <div className="tabs">
                             <label htmlFor="tab-login">Login</label>
                             <label htmlFor="tab-signup">Sign Up</label>
@@ -144,59 +241,102 @@ export default function LoginPage() {
                             <form onSubmit={handleLogin}>
                                 <div className="form-group">
                                     <label htmlFor="login-email">Email</label>
-                                    <input type="email" id="login-email" placeholder="you@example.com"
-                                           value={email}
-                                           onChange={handleEmailChange}
+                                    <input
+                                        type="email"
+                                        id="login-email"
+                                        placeholder="you@example.com"
+                                        value={email}
+                                        onChange={handleEmailChange}
+                                        required
                                     />
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="login-password">Password</label>
-                                    <input type="password" id="login-password" placeholder="••••••••"
-                                           value={password}
-                                           onChange={handlePasswordChange}
+                                    <input
+                                        type="password"
+                                        id="login-password"
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={handlePasswordChange}
+                                        required
                                     />
                                 </div>
-                                {/* condition ? first : second */}
-                                {loading ? (
-                                    <div className="form-actions">
-                                        Loading…
-                                    </div>
-                                ) : (
-                                    <div className="form-actions">
-                                        <button type="submit" className="btn btn-primary">
-                                            Sign In
-                                        </button>
-
-                                        <label htmlFor="tab-signup" className="btn btn-link">
-                                            Create Account
-                                        </label>
-                                    </div>
+                                <div className="form-actions">
+                                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                                        {loading ? "Signing in..." : "Sign In"}
+                                    </button>
+                                    <label htmlFor="tab-signup" className="btn btn-link">
+                                        Create Account
+                                    </label>
+                                </div>
+                                {message && !loading && (
+                                    <div style={{ marginTop: "10px", fontSize: "14px" }}>{message}</div>
                                 )}
+                                <div className="form-actions" style={{ marginTop: "10px" }}>
+                                    <a href="/forgot-password" className="btn btn-link">
+                                        Forgot Password?
+                                    </a>
+                                </div>
                             </form>
                         </section>
 
                         <section className="form-section signup">
-                            <form>
+                            <form onSubmit={handleSignup}>
                                 <div className="form-group">
                                     <label htmlFor="signup-name">Name</label>
-                                    <input type="text" id="signup-name" placeholder="John Doe"/>
+                                    <input
+                                        type="text"
+                                        id="signup-name"
+                                        placeholder="John Doe"
+                                        value={signupName}
+                                        onChange={handleSignupNameChange}
+                                        required
+                                    />
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="signup-email">Email</label>
-                                    <input type="email" id="signup-email" placeholder="you@example.com"/>
+                                    <input
+                                        type="email"
+                                        id="signup-email"
+                                        placeholder="you@example.com"
+                                        value={signupEmail}
+                                        onChange={handleSignupEmailChange}
+                                        required
+                                    />
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="signup-password">Password</label>
-                                    <input type="password" id="signup-password" placeholder="••••••••"/>
+                                    <input
+                                        type="password"
+                                        id="signup-password"
+                                        placeholder="••••••••"
+                                        value={signupPassword}
+                                        onChange={handleSignupPasswordChange}
+                                        required
+                                    />
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="signup-confirm">Confirm Password</label>
-                                    <input type="password" id="signup-confirm" placeholder="••••••••"/>
+                                    <input
+                                        type="password"
+                                        id="signup-confirm"
+                                        placeholder="••••••••"
+                                        value={signupConfirm}
+                                        onChange={handleSignupConfirmChange}
+                                        required
+                                    />
                                 </div>
                                 <div className="form-actions">
-                                    <button type="submit" className="btn btn-primary">Create Account</button>
-                                    <label htmlFor="tab-login" className="btn btn-link">Sign In</label>
+                                    <label htmlFor="tab-login" className="btn btn-link">
+                                        Sign In
+                                    </label>
+                                    <button type="submit" className="btn btn-primary" disabled={signupLoading}>
+                                        {signupLoading ? "Signing up..." : "Create Account"}
+                                    </button>
                                 </div>
+                                {signupMessage && !signupLoading && (
+                                    <div style={{ marginTop: "10px", fontSize: "14px" }}>{signupMessage}</div>
+                                )}
                             </form>
                         </section>
                     </div>

@@ -88,6 +88,7 @@ public class UserService implements UserDetailsService {
     }
 
     public User create(User user) throws BootcampException {
+        // Validate user data
         if (user.getId() != null) {
             throw new BootcampException(HttpStatus.BAD_REQUEST, "User id must be null");
         }
@@ -100,6 +101,7 @@ public class UserService implements UserDetailsService {
             throw new BootcampException(HttpStatus.BAD_REQUEST, "User email must not be null or empty");
         }
 
+        // Check if email is already in use
         if (userRepository.findByEmail(user.getEmail()).isPresent()) {
             throw new BootcampException(HttpStatus.CONFLICT, "Email already in use");
         }
@@ -108,14 +110,18 @@ public class UserService implements UserDetailsService {
             throw new BootcampException(HttpStatus.BAD_REQUEST, "User password must not be null or empty");
         }
 
+        // Encrypt the password
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
+        // Generate verification token
         String token = UUID.randomUUID().toString();
         user.setVerificationToken(token);
-        user.setVerified(false);
+        user.setVerified(false); // User is not verified yet
 
+        // Save the user to the database
         user = userRepository.save(user);
 
+        // Send verification email (email contains the verification link)
         try {
             emailService.sendVerificationEmail(user.getEmail(), token);
         } catch (IOException e) {
@@ -154,7 +160,6 @@ public class UserService implements UserDetailsService {
         return deletedUser;
     }
 
-
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         User user = null;
         try {
@@ -173,27 +178,45 @@ public class UserService implements UserDetailsService {
     }
 
     public void changePassword(Long userId, String oldPassword, String newPassword) throws BootcampException {
-        User user = getUserById(userId);
+        // Step 1: Validate old and new passwords
+        if (oldPassword == null || oldPassword.trim().isEmpty()) {
+            throw new BootcampException(HttpStatus.BAD_REQUEST, "Old password cannot be empty.");
+        }
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            throw new BootcampException(HttpStatus.BAD_REQUEST, "New password cannot be empty.");
+        }
 
+        // Step 2: Fetch user by ID
+        User user = getUserById(userId);  // Assuming getUserById() throws a BootcampException if user not found
+
+        // Step 3: Validate that the old password is correct
         if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
             throw new BootcampException(HttpStatus.BAD_REQUEST, "Old password is incorrect.");
         }
 
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
+        // Step 4: Encode and update the password
+        String encodedNewPassword = passwordEncoder.encode(newPassword);
+        user.setPassword(encodedNewPassword);
+
+        // Step 5: Save the user with the new password
+        try {
+            userRepository.save(user);
+        } catch (Exception e) {
+            throw new BootcampException(HttpStatus.INTERNAL_SERVER_ERROR, "An error occurred while saving the new password.");
+        }
     }
 
     public boolean verifyToken(String token) throws BootcampException {
         Optional<User> userOptional = userRepository.findByVerificationToken(token);
 
         if (userOptional.isEmpty()) {
-            return false;
+            throw new BootcampException(HttpStatus.BAD_REQUEST, "Invalid or expired verification token.");
         }
 
         User user = userOptional.get();
-        user.setVerified(true);
-        user.setVerificationToken(null); // Optional: clear the token
-        userRepository.save(user);
+        user.setVerified(true); // Mark as verified
+        user.setVerificationToken(null); // Optionally clear the verification token
+        userRepository.save(user); // Persist the changes
         return true;
     }
 

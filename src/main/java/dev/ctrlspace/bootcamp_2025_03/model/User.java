@@ -1,6 +1,7 @@
 package dev.ctrlspace.bootcamp_2025_03.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -15,11 +16,13 @@ import java.util.List;
 @Table(name = "users")
 public class User implements UserDetails {
 
+    // ========== Identification ==========
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
 
+    // ========== Basic Info ==========
     @Basic
     @Column(name = "name")
     private String name;
@@ -33,6 +36,7 @@ public class User implements UserDetails {
     @Column(name = "password")
     private String password;
 
+    // ========== Verification & Security ==========
     @Basic
     @Column(name = "verified")
     private boolean verified = false;
@@ -48,8 +52,12 @@ public class User implements UserDetails {
     @Column(name = "password_reset_token_expiry")
     private LocalDateTime passwordResetTokenExpiry;
 
-//    private List<CartItem> cart;
+    // ========== Relationships ==========
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    private UserProfileSettings userProfileSettings;
 
+    // ========== Constructors ==========
     public User() {
     }
 
@@ -59,6 +67,8 @@ public class User implements UserDetails {
         this.email = email;
         this.password = password;
     }
+
+    // ========== Getters & Setters ==========
 
     public Long getId() {
         return id;
@@ -84,6 +94,52 @@ public class User implements UserDetails {
         this.email = email;
     }
 
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public boolean isVerified() {
+        return verified;
+    }
+
+    public void setVerified(boolean verified) {
+        this.verified = verified;
+    }
+
+    public String getVerificationToken() {
+        return verificationToken;
+    }
+
+    public void setVerificationToken(String verificationToken) {
+        this.verificationToken = verificationToken;
+    }
+
+    public String getPasswordResetToken() {
+        return passwordResetToken;
+    }
+
+    public void setPasswordResetToken(String passwordResetToken) {
+        this.passwordResetToken = passwordResetToken;
+    }
+
+    public LocalDateTime getPasswordResetTokenExpiry() {
+        return passwordResetTokenExpiry;
+    }
+
+    public void setPasswordResetTokenExpiry(LocalDateTime passwordResetTokenExpiry) {
+        this.passwordResetTokenExpiry = passwordResetTokenExpiry;
+    }
+
+    public UserProfileSettings getUserProfileSettings() {
+        return userProfileSettings;
+    }
+
+    public void setUserProfileSettings(UserProfileSettings userProfileSettings) {
+        this.userProfileSettings = userProfileSettings;
+    }
+
+    // ========== UserDetails Implementation ==========
+
     @Override
     @JsonIgnore
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -100,27 +156,6 @@ public class User implements UserDetails {
     @JsonIgnore
     public String getUsername() {
         return email;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public boolean isVerified() {
-        return verified;
-    }
-
-    public void setVerified(boolean verified) {
-        this.verified = verified;
-    }
-
-    @JsonIgnore
-    public String getVerificationToken() {
-        return verificationToken;
-    }
-
-    public void setVerificationToken(String verificationToken) {
-        this.verificationToken = verificationToken;
     }
 
     @Override
@@ -145,21 +180,5 @@ public class User implements UserDetails {
     @JsonIgnore
     public boolean isEnabled() {
         return true;
-    }
-
-    public String getPasswordResetToken() {
-        return passwordResetToken;
-    }
-
-    public void setPasswordResetToken(String passwordResetToken) {
-        this.passwordResetToken = passwordResetToken;
-    }
-
-    public LocalDateTime getPasswordResetTokenExpiry() {
-        return passwordResetTokenExpiry;
-    }
-
-    public void setPasswordResetTokenExpiry(LocalDateTime passwordResetTokenExpiry) {
-        this.passwordResetTokenExpiry = passwordResetTokenExpiry;
     }
 }

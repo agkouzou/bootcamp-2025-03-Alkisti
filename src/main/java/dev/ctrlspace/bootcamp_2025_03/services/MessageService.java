@@ -3,6 +3,8 @@ package dev.ctrlspace.bootcamp_2025_03.services;
 import dev.ctrlspace.bootcamp_2025_03.exceptions.BootcampException;
 import dev.ctrlspace.bootcamp_2025_03.model.Message;
 import dev.ctrlspace.bootcamp_2025_03.model.Thread;
+import dev.ctrlspace.bootcamp_2025_03.model.User;
+import dev.ctrlspace.bootcamp_2025_03.model.UserProfileSettings;
 import dev.ctrlspace.bootcamp_2025_03.model.dto.*;
 import dev.ctrlspace.bootcamp_2025_03.repository.MessageRepository;
 import dev.ctrlspace.bootcamp_2025_03.repository.ThreadRepository;
@@ -16,12 +18,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class MessageService {
@@ -40,6 +40,12 @@ public class MessageService {
 
     @Autowired
     private ThreadRepository threadRepository;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private UserProfileSettingsService userProfileSettingsService;
 
     public void checkThreadOwnership(Long threadId, Authentication authentication) throws BootcampException {
         Jwt jwt = (Jwt) authentication.getPrincipal();
@@ -107,7 +113,18 @@ public class MessageService {
                 if (Boolean.FALSE.equals(userMsg.getIsCompletion()) && Boolean.TRUE.equals(assistantMsg.getIsCompletion())) {
                     try {
                         // Step 7: Generate the thread title based on user and assistant messages
-                        String generatedTitle = generateThreadTitle(userMsg.getContent(), assistantMsg.getContent(), model);
+
+                        // 7a. Fetch user ID from authentication or context (if not already available)
+                        Jwt jwt = (Jwt) authentication.getPrincipal();
+                        String userIdStr = jwt.getClaim("sub");
+                        Long userId = Long.parseLong(userIdStr);
+
+                        // 7b. Fetch user profile settings for the user
+                        UserProfileSettingsDTO settings = userProfileSettingsService.getProfileSettingsByUserId(userId);
+
+                        // 7c. Pass settings when generating thread title
+                        String generatedTitle = generateThreadTitle(userMsg.getContent(), assistantMsg.getContent(), model, settings);
+
                         if (generatedTitle == null || generatedTitle.isBlank()) {
                             generatedTitle = "New Chat";
                         }
@@ -275,7 +292,7 @@ public class MessageService {
 
         RestTemplate restTemplate = new RestTemplate();
 
-        //set header bearer
+        // Set header bearer
         HttpHeaders headers = new HttpHeaders();
         headers.add("Authorization", "Bearer " + groqApiKey);
 
@@ -284,12 +301,32 @@ public class MessageService {
 
         // Include system prompt with the actual current date + full message history
         String today = java.time.LocalDate.now().toString();
+
+        // Fetch user profile settings
+        Long userId = thread.getUser().getId(); // thread already contains user
+        User user = userService.getUserById(userId);
+        UserProfileSettingsDTO settings = userProfileSettingsService.getProfileSettingsByUser(user);
+
+        String nickname = settings.getNickname();
+        String job = settings.getJob();
+        List<String> traitsList = settings.getTraits();
+        String traits = traitsList != null ? String.join(", ", traitsList) : "";
+        String intro = settings.getIntroduction();
+        String notes = settings.getNotes();
+
+        // Build system prompt using profile
+        String systemPrompt = String.format("""
+        You are a helpful and up-to-date assistant. Today’s date is %s.
+        Always address the user as '%s'.
+        The user is a '%s'. Their intro: "%s".
+        Embody the following traits: %s.
+        Notes: %s
+        Use the conversation history to stay consistent.
+        Avoid mentioning training data limitations or knowledge cutoffs.
+        """, today, nickname, job, intro, traits, notes);
+
         List<ChatMessage> messages = new ArrayList<>();
-        messages.add(new ChatMessage(
-                "system",
-                "You are a helpful and up-to-date assistant. Today’s date is " + today +
-                        ". Use the conversation history to stay consistent. Avoid mentioning training data limitations or knowledge cutoffs."
-        ));
+        messages.add(new ChatMessage("system", systemPrompt));
 
         // Convert full history to OpenAI-style messages
         for (Message m : history) {
@@ -299,11 +336,10 @@ public class MessageService {
 
         chatCompletionRequest.setMessages(messages);
 
-        // 3) wrap both body & headers
-        HttpEntity<ChatCompletionRequest> httpEntity =
-                new HttpEntity<>(chatCompletionRequest, headers);
+        // Wrap body & headers
+        HttpEntity<ChatCompletionRequest> httpEntity = new HttpEntity<>(chatCompletionRequest, headers);
 
-        // set body
+        // Make request
         ChatCompletionResponse response = restTemplate.postForEntity(
                 groqApiUrl,
                 httpEntity,
@@ -322,16 +358,16 @@ public class MessageService {
         responseMessage.setCreatedAt(Instant.now());
         responseMessage.setUpdatedAt(Instant.now());
 
-        // save responseMessage message in DB
+        // Save responseMessage message in DB
 
         messageRepository.save(responseMessage);
 
-        // return completion message
+        // Return completion message
 
         return responseMessage;
     }
 
-    private String generateThreadTitle(String newMessage, String responseMessage, String model) {
+    private String generateThreadTitle(String newMessage, String responseMessage, String model, UserProfileSettingsDTO settings) {
         try {
             RestTemplate restTemplate = new RestTemplate();
 
@@ -342,10 +378,33 @@ public class MessageService {
             request.setModel(model);
 
             List<ChatMessage> messages = new ArrayList<>();
-            messages.add(new ChatMessage(
-                    "system",
-                    "You are a helpful assistant. Generate a short, 5-7 word title that summarizes the following conversation."
-            ));
+
+            // Build a personalized system prompt based on user profile settings
+            StringBuilder systemPrompt = new StringBuilder("You are a helpful assistant. Generate a short, 5-7 word title that summarizes the following conversation. ");
+
+            if (settings.getNickname() != null && !settings.getNickname().isBlank()) {
+                systemPrompt.append("The user’s nickname is ").append(settings.getNickname()).append(". ");
+            }
+
+            if (settings.getIntroduction() != null && !settings.getIntroduction().isBlank()) {
+                systemPrompt.append("Intro: ").append(settings.getIntroduction()).append(" ");
+            }
+
+            if (settings.getJob() != null && !settings.getJob().isBlank()) {
+                systemPrompt.append("The user works as a ").append(settings.getJob()).append(". ");
+            }
+
+            if (settings.getTraits() != null && !settings.getTraits().isEmpty()) {
+                String traitsJoined = String.join(", ", settings.getTraits());
+                systemPrompt.append("Personality traits: ").append(traitsJoined).append(". ");
+            }
+
+            if (settings.getNotes() != null && !settings.getNotes().isBlank()) {
+                systemPrompt.append("Additional notes: ").append(settings.getNotes()).append(". ");
+            }
+
+            messages.add(new ChatMessage("system", systemPrompt.toString()));
+
             messages.add(new ChatMessage("user", "User: " + newMessage + "\nAssistant: " + responseMessage + "\n\nTitle:"));
 
             request.setMessages(messages);
@@ -369,7 +428,6 @@ public class MessageService {
                 generatedTitle = generatedTitle.substring(1, generatedTitle.length() - 1).trim();
             }
 
-            // Return the generated title or default if blank
             return (generatedTitle == null || generatedTitle.isBlank()) ? "New Chat Thread" : generatedTitle;
 
         } catch (Exception e) {

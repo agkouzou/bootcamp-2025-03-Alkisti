@@ -4,6 +4,8 @@ package dev.ctrlspace.bootcamp_2025_03.controllers;
 import dev.ctrlspace.bootcamp_2025_03.exceptions.BootcampException;
 import dev.ctrlspace.bootcamp_2025_03.model.TokenDTO;
 import dev.ctrlspace.bootcamp_2025_03.model.User;
+import dev.ctrlspace.bootcamp_2025_03.model.dto.UserProfileSettingsDTO;
+import dev.ctrlspace.bootcamp_2025_03.services.UserProfileSettingsService;
 import dev.ctrlspace.bootcamp_2025_03.services.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,9 @@ public class UserController {
         this.userService = userService;
         this.jwtEncoder = jwtEncoder;
     }
+
+    @Autowired
+    private UserProfileSettingsService profileSettingsService;
 
 //    Remove this method to prevent fetching all users
 //    @GetMapping("")
@@ -101,7 +106,7 @@ public class UserController {
         boolean verified = userService.verifyToken(token);
 
         if (verified) {
-            return "Email verified!";
+            return "Email verified! Redirecting to the login page...";
         } else {
             throw new BootcampException(HttpStatus.BAD_REQUEST, "Invalid or expired token.");
         }
@@ -118,19 +123,20 @@ public class UserController {
 
     @PostMapping("/login")
     public TokenDTO login(Authentication authentication) throws BootcampException {
-
         String email = authentication.getName();
         User loggedInUser = userService.getUserByEmail(email);
 
+        // Check if user exists
         if (loggedInUser == null) {
             throw new BootcampException(HttpStatus.UNAUTHORIZED, "User not found.");
         }
 
+        // Check if user is verified
         if (!loggedInUser.isVerified()) {
             throw new BootcampException(HttpStatus.UNAUTHORIZED, "Please verify your email before logging in.");
         }
 
-        // 2) Build JWT claims
+        // Generate JWT token (If user is valid and verified)
         Instant now = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer("self")
@@ -143,12 +149,13 @@ public class UserController {
 //                        .map(a -> a.getAuthority()).toList())
                 .build();
 
-        // 3) Encode & return token
+        // Encode and return token
         String token = jwtEncoder.encode(JwtEncoderParameters.from(claims))
                 .getTokenValue();
 
         TokenDTO tokenDTO = new TokenDTO();
         tokenDTO.setToken(token);
+
         return tokenDTO;
     }
 
@@ -188,16 +195,29 @@ public class UserController {
 
     }
 
-    @PatchMapping("/change-password")
+    @PatchMapping("/{id}/change-password")
     public Map<String, String> changePassword(
+            @PathVariable("id") long userId,
             @RequestBody Map<String, String> payload,
             Authentication authentication) throws BootcampException {
 
         Jwt jwt = (Jwt) authentication.getPrincipal();
         Long authenticatedUserId = Long.valueOf(jwt.getClaimAsString("sub"));
 
+        if (!authenticatedUserId.equals(userId)) {
+            throw new BootcampException(HttpStatus.FORBIDDEN, "You do not have permission to change this user's password");
+        }
+
         String oldPassword = payload.get("oldPassword");
         String newPassword = payload.get("newPassword");
+
+        if (oldPassword == null || oldPassword.trim().isEmpty()) {
+            throw new BootcampException(HttpStatus.BAD_REQUEST, "Old password cannot be empty.");
+        }
+
+        if (newPassword == null || newPassword.trim().isEmpty()) {
+            throw new BootcampException(HttpStatus.BAD_REQUEST, "New password cannot be empty.");
+        }
 
         userService.changePassword(authenticatedUserId, oldPassword, newPassword);
 
@@ -222,5 +242,36 @@ public class UserController {
     @GetMapping("/password-reset")
     public String showResetInstructions() {
         return "Your password reset link is valid. You can now close this page and proceed to submitting your new password.";
+    }
+
+    @GetMapping("/{id}/profile-settings")
+    public UserProfileSettingsDTO getProfileSettings(
+            @PathVariable Long id,
+            Authentication authentication) throws BootcampException {
+
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        Long authenticatedUserId = Long.valueOf(jwt.getClaimAsString("sub"));
+
+        if (!authenticatedUserId.equals(id)) {
+            throw new BootcampException(HttpStatus.FORBIDDEN, "You do not have permission to view this user's profile settings");
+        }
+
+        return profileSettingsService.getProfileSettingsByUserId(id);
+    }
+
+    @PutMapping("/{id}/profile-settings")
+    public UserProfileSettingsDTO updateProfileSettings(
+            @PathVariable Long id,
+            @RequestBody UserProfileSettingsDTO dto,
+            Authentication authentication) throws BootcampException {
+
+        Jwt jwt = (Jwt) authentication.getPrincipal();
+        Long authenticatedUserId = Long.valueOf(jwt.getClaimAsString("sub"));
+
+        if (!authenticatedUserId.equals(id)) {
+            throw new BootcampException(HttpStatus.FORBIDDEN, "You do not have permission to update this user's profile settings");
+        }
+
+        return profileSettingsService.updateProfileSettings(id, dto);
     }
 }

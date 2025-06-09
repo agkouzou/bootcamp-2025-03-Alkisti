@@ -27,7 +27,8 @@ public class SendGridEmailService {
         String subject = "Verify your email address";
         Email to = new Email(toEmail);
 
-        String verificationLink = "http://localhost:8080/users/verify?token=" + token;
+        String verificationLink = "http://localhost:3000/login?token=" + token;
+
         Content content = new Content("text/plain",
                 "Welcome! Please verify your account by clicking this link: " + verificationLink);
 
@@ -56,7 +57,7 @@ public class SendGridEmailService {
         String subject = "Password Reset Request";
         Email to = new Email(toEmail);
 
-        String resetLink = "http://localhost:8080/users/password-reset?token=" + token;
+        String resetLink = "http://localhost:3000/reset-password?token=" + token;
 
         Content content = new Content("text/plain",
                 "You requested to reset your password. Click this link to set a new password: " + resetLink

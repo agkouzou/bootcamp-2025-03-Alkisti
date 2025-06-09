@@ -75,6 +75,17 @@ input[type="radio"] { display: none; }
 #tab-signup:checked ~ .form-section.signup {
     display: block;
 }
+/* Show forgot password form properly */
+.form-section.single-form {
+    display: block;
+    background: #fff;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    max-width: 420px;
+    width: 100%;
+}
+
 .form-group { margin-bottom: 1rem; display: flex; flex-direction: column; }
 .form-group label { margin-bottom: 0.5rem; font-weight: 500; }
 .form-group input { padding: 0.75rem 1rem; border: 1px solid #ccc; border-radius: 0.5rem; outline: none; transition: border-color 0.2s; }

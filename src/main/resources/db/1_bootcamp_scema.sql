@@ -1,6 +1,7 @@
 TRUNCATE TABLE
     cart_items, orders, users, products,
-    messages, threads
+    messages, threads, user_profile_settings,
+    user_profile_settings_traits
     RESTART IDENTITY CASCADE;
 
 CREATE TABLE IF NOT EXISTS threads (
@@ -30,8 +31,21 @@ CREATE TABLE IF NOT EXISTS users (
     verification_token TEXT
 );
 
-DELETE FROM users
-WHERE email = 'a.gkouzou@gmail.com';
+CREATE TABLE IF NOT EXISTS user_profile_settings (
+                                                     id BIGSERIAL PRIMARY KEY,
+                                                     nickname VARCHAR(255),
+                                                     introduction VARCHAR(1000),
+                                                     job VARCHAR(255),
+                                                     notes VARCHAR(2000),
+                                                     user_id BIGINT NOT NULL UNIQUE,
+                                                     CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS user_profile_settings_traits (
+                                                            user_profile_settings_id BIGINT NOT NULL,
+                                                            traits VARCHAR(255),
+                                                            CONSTRAINT fk_profile_settings FOREIGN KEY (user_profile_settings_id) REFERENCES user_profile_settings(id)
+);
 
 CREATE TABLE IF NOT EXISTS products (
                                         id BIGSERIAL PRIMARY KEY,

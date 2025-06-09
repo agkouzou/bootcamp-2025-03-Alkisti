@@ -39,7 +39,7 @@ export default function ChatPage() {
 
     // Get token & userId on client after mount
     useEffect(() => {
-        const t = localStorage.getItem("token");
+        const t = localStorage.getItem("authToken");
         setToken(t);
         const decoded = parseJwt(t);
         setUserId(parseInt(decoded?.sub));
@@ -75,7 +75,6 @@ export default function ChatPage() {
                 if (threadId && threads.some(t => t.id === threadId)) {
                     setSelectedThreadId(threadId);
                 } else if (threads.length > 0) {
-                // if (threads.length > 0) {
                     setSelectedThreadId(threads[0].id);
                     router.replace({
                         pathname: '/chat',
@@ -107,7 +106,6 @@ export default function ChatPage() {
                 setMessages([]);
             });
     }, [selectedThreadId, token]);
-    // }, [selectedThreadId]);
 
     // Send message handler
     const handleSendMessage = async () => {
@@ -122,18 +120,6 @@ export default function ChatPage() {
                     title: "",
                     completionModel: selectedModel,
                 });
-                // const threadPayload = {
-                //     title: "",
-                //     // initialMessageContent: newMessage,
-                //     completionModel: selectedModel,
-                // };
-
-                // // Only include model if selected
-                // if (selectedModel) {
-                //     threadPayload.completionModel = selectedModel;
-                // }
-
-                // const threadResponse = await api.post("/threads", threadPayload);
 
                 threadId = threadResponse.data.id;
                 setThreads((prev) => [...prev, threadResponse.data]);
@@ -146,10 +132,6 @@ export default function ChatPage() {
                 content: newMessage,
                 completionModel: selectedModel,
             };
-
-            // if (selectedModel) {
-            //     messagePayload.completionModel = selectedModel;
-            // }
 
             // POST message and receive updated thread
             const response = await api.post(`/threads/${threadId}/messages`, messagePayload);
@@ -165,18 +147,10 @@ export default function ChatPage() {
                     t.id === updatedThread.id ? { ...t, title: updatedThread.title } : t
                 )
             );
-
-            // setMessages((prev) => [...prev, response.data]);
-            // setNewMessage("");
         } catch (error) {
             console.error("Error sending message:", error);
         }
     };
-
-    // // Avoid rendering before mount + token loaded
-    // if (!isMounted) {
-    //     return null;
-    // }
 
     const handleUpdateMessage = async (id) => {
         try {
@@ -212,7 +186,6 @@ export default function ChatPage() {
             };
 
             setThreads((prev) => [...prev, threadWithFallbackTitle]);
-            // setThreads((prevThreads) => [...prevThreads, threadWithFallbackTitle]);
             setSelectedThreadId(response.data.id);
             router.push(`/chat?threadId=${response.data.id}`);
         } catch (error) {
@@ -258,9 +231,8 @@ export default function ChatPage() {
                     await api.delete(`/messages/${assistantMessage.id}`);
                 } catch (err) {
                     if (err?.response?.status !== 404) {
-                        throw err; // rethrow if it's not a 404
+                        throw err;
                     }
-                    // else ignore 404
                 }
             }
 
@@ -275,6 +247,20 @@ export default function ChatPage() {
 
     if (!isMounted) return null;
 
+    const handleAccount = () => {
+        window.location.href = "/account-settings";
+    };
+
+    const handlePassword = () => {
+        window.location.href = "/change-password";
+    };
+
+    const handleLogout = () => {
+        // Clear auth data here, e.g.:
+        localStorage.removeItem('authToken');
+        window.location.href = "/login";
+    };
+
     // Example of making an API call with Authorization token
     const getMessages = async (threadId) => {
         try {
@@ -284,10 +270,8 @@ export default function ChatPage() {
                     Authorization: `Bearer ${authToken}`,
                 }
             });
-            // Handle the response (e.g., update UI with messages)
         } catch (error) {
             console.error("Error fetching messages", error);
-            // Handle error (e.g., show error message)
         }
     };
 
@@ -296,17 +280,15 @@ export default function ChatPage() {
 
         try {
             const response = await axios.post(`/threads/${threadId}/messages`, {
-                content: messageContent,  // Assuming content is being sent in this way
+                content: messageContent,
             }, {
                 headers: {
                     Authorization: `Bearer ${authToken}`,
                 }
             });
 
-            // Handle the response, maybe update UI with new message
         } catch (error) {
             console.error("Error creating message", error);
-            // Handle error
         }
     };
 
@@ -329,9 +311,24 @@ export default function ChatPage() {
                             <input type="checkbox" id="profile-toggle" />
                             <label htmlFor="profile-toggle" className="profile-icon">JD</label>
                             <div className="dropdown-menu">
-                                <a href="#">Profile</a>
-                                <a href="#">Settings</a>
-                                <a href="#">Logout</a>
+                                <a href="/account-settings" onClick={(e) => {
+                                    e.preventDefault();
+                                    handleAccount();
+                                }}>
+                                    Account Settings
+                                </a>
+                                <a href="/account-settings" onClick={(e) => {
+                                    e.preventDefault();
+                                    handlePassword();
+                                }}>
+                                    Change Password
+                                </a>
+                                <a href="/login" onClick={(e) => {
+                                    e.preventDefault();
+                                    handleLogout();
+                                }}>
+                                    Logout
+                                </a>
                             </div>
                             <label htmlFor="profile-toggle" className="overlay"></label>
                         </div>
@@ -340,7 +337,7 @@ export default function ChatPage() {
                 <div className="center-container">
                     <aside className="threads-list">
                         <h2>Threads</h2>
-                        <button onClick={createNewThread}>New Chat</button> {/* Button to create a new thread */}
+                        <button onClick={createNewThread}>New Chat</button>
                         {threads.length === 0 ? (
                             <p>No threads yet. Start a new conversation!</p>
                         ) : (
@@ -429,15 +426,12 @@ export default function ChatPage() {
                                                     {msg.content}
                                                     <button
                                                         onClick={handleCopy}
-                                                        // style={{ marginLeft: "10px", cursor: "pointer" }}
-                                                        // title="Copy message"
                                                     >
                                                         📋
                                                     </button>
                                                     {isUser && (
                                                         <>
                                                             <button
-                                                                // className="edit-button"
                                                                 onClick={() => {
                                                                     setEditingMessageId(msg.id);
                                                                     setEditedContent(msg.content);
@@ -448,8 +442,6 @@ export default function ChatPage() {
                                                             <button
                                                                 onClick={() => handleDeleteMessageWithResponse(msg.id)}
                                                                 style={{ color: "red" }}
-                                                                // style={{ marginLeft: "10px", color: "red", cursor: "pointer" }}
-                                                                // title="Delete message and assistant response"
                                                             >
                                                                 🗑️
                                                             </button>
