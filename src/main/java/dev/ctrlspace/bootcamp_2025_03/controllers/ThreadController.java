@@ -28,7 +28,6 @@ public class ThreadController {
 
     @GetMapping("/threads/{id}")
     public ThreadResponse getThreadById(@PathVariable("id") Long id, Authentication authentication) throws BootcampException {
-        threadService.markThreadAsRead(id, authentication);
         return threadService.getThreadById(id, authentication);
     }
 

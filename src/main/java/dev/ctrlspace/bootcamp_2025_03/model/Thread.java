@@ -24,9 +24,6 @@ public class Thread {
 
     private String completionModel;
 
-    private boolean hasUnreadMessages = true;
-
-//    @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OneToMany(mappedBy = "thread", cascade = CascadeType.ALL)
     private List<Message> messages = new ArrayList<>();
 

@@ -2,6 +2,7 @@ import Head from "next/head";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/router";
+import { formatDistanceToNow, format } from "date-fns";
 
 function parseJwt(token) {
     try {
@@ -20,24 +21,49 @@ function parseJwt(token) {
     }
 }
 
+function getInitials(name) {
+    if (!name || typeof name !== "string") return "";
+    const cleanedName = name.trim();
+    if (cleanedName === "" || cleanedName.toLowerCase() === "undefined") return "";
+    const parts = cleanedName.split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function sortMessagesByUpdated(messages) {
+    return [...messages].sort((a, b) => {
+        const dateA = a.updatedAt ? new Date(a.updatedAt) : new Date(a.createdAt);
+        const dateB = b.updatedAt ? new Date(b.updatedAt) : new Date(b.createdAt);
+        return dateA - dateB;
+    });
+}
+
 export default function ChatPage() {
     const router = useRouter();
-    const threadIdFromUrl = router.query.threadId;
 
     const [isMounted, setIsMounted] = useState(false);
     const [token, setToken] = useState(null);
     const [userId, setUserId] = useState(null);
 
+    const [userName, setUserName] = useState("");
+
     const [threads, setThreads] = useState([]);
     const [selectedThreadId, setSelectedThreadId] = useState(null);
+
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState("");
+
     const [selectedModel, setSelectedModel] = useState("llama3-70b-8192");
 
     const [editingMessageId, setEditingMessageId] = useState(null);
     const [editedContent, setEditedContent] = useState("");
 
-    // Get token & userId on client after mount
+    const api = axios.create({
+        baseURL: "http://localhost:8080",
+        headers: { Authorization: `Bearer ${token}` },
+    });
+
+    // On mount: get token & userId
     useEffect(() => {
         const t = localStorage.getItem("authToken");
         setToken(t);
@@ -46,60 +72,70 @@ export default function ChatPage() {
         setIsMounted(true);
     }, []);
 
-    // Redirect if no valid token or userId (client side)
+    // Redirect if no valid token or userId
     useEffect(() => {
         if (isMounted && (!token || !userId || isNaN(userId))) {
             window.location.href = "/login";
         }
     }, [isMounted, token, userId]);
 
-    // Create axios instance after token is set
-    const api = axios.create({
-        baseURL: "http://localhost:8080",
-        headers: { Authorization: `Bearer ${token}` },
-    });
+    // Fetch user info when token and userId available
+    useEffect(() => {
+        if (!token || !userId) return;
 
-    // Load threads on token available
+        api.get(`/users/${userId}`)
+            .then(res => {
+                const userNameFromApi = res.data.name;
+                setUserName(userNameFromApi && userNameFromApi !== "undefined" ? userNameFromApi : "");
+            })
+            .catch(err => {
+                console.error("Failed to fetch user info:", err);
+                setUserName("");
+            });
+    }, [token, userId]);
+
+    // Fetch threads when token available
     useEffect(() => {
         if (!token) return;
 
         api.get("/threads")
-            .then((res) => {
-                const threads = res.data;
-                setThreads(threads);
+            .then(res => {
+                const fetchedThreads = res.data;
+                fetchedThreads.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                setThreads(fetchedThreads);
 
-                // Use threadId from URL if valid
                 const threadIdFromUrl = router.query.threadId;
-                const threadId = parseInt(threadIdFromUrl, 10);
+                const parsedThreadId = parseInt(threadIdFromUrl, 10);
 
-                if (threadId && threads.some(t => t.id === threadId)) {
-                    setSelectedThreadId(threadId);
-                } else if (threads.length > 0) {
-                    setSelectedThreadId(threads[0].id);
-                    router.replace({
-                        pathname: '/chat',
-                        query: { threadId: threads[0].id },
-                    });
+                if (parsedThreadId && fetchedThreads.some(t => t.id === parsedThreadId)) {
+                    setSelectedThreadId(parsedThreadId);
+                } else if (fetchedThreads.length > 0) {
+                    const latestThread = fetchedThreads.reduce((latest, thread) =>
+                            new Date(thread.createdAt) > new Date(latest.createdAt) ? thread : latest
+                        , fetchedThreads[0]);
+
+                    setSelectedThreadId(latestThread.id);
+                    router.replace({ pathname: '/chat', query: { threadId: latestThread.id } });
                 } else {
-                    setSelectedThreadId(null); // No threads to select
+                    setSelectedThreadId(null);
                 }
             })
-            .catch((err) => {
+            .catch(err => {
                 console.error("Error loading threads:", err);
             });
-    }, [token]);
+    }, [token, router]);
 
-    // Load messages when selectedThreadId changes
+    // Fetch messages when selectedThreadId or token changes
     useEffect(() => {
         if (!selectedThreadId || !token) {
-            // if (!selectedThreadId) {
-            setMessages([]); // No thread selected
+            setMessages([]);
             return;
         }
 
         api.get(`/threads/${selectedThreadId}`)
             .then(res => {
-                setMessages(res.data.messages);
+                // Sort messages by updatedAt or createdAt before setting state
+                setMessages(sortMessagesByUpdated(res.data.messages));
             })
             .catch(err => {
                 console.error("Failed to load messages:", err);
@@ -107,85 +143,91 @@ export default function ChatPage() {
             });
     }, [selectedThreadId, token]);
 
-    // Send message handler
     const handleSendMessage = async () => {
-        if (newMessage.trim() === "") return;
+        if (!newMessage || newMessage.trim() === "") {
+            console.warn("New message is empty, skipping send");
+            return;
+        }
 
         try {
             let threadId = selectedThreadId;
 
-            // Auto-create thread if none selected
             if (!threadId) {
                 const threadResponse = await api.post("/threads", {
                     title: "",
                     completionModel: selectedModel,
                 });
-
                 threadId = threadResponse.data.id;
-                setThreads((prev) => [...prev, threadResponse.data]);
+                setThreads(prev => [...prev, threadResponse.data]);
                 setSelectedThreadId(threadId);
                 router.push(`/chat?threadId=${threadId}`);
             }
 
-            // Send message
+            console.log("newMessage:", JSON.stringify(newMessage));
+            console.log("selectedModel:", selectedModel);
+
             const messagePayload = {
                 content: newMessage,
                 completionModel: selectedModel,
             };
 
-            // POST message and receive updated thread
+            console.log("Sending message payload:", JSON.stringify(messagePayload), "to thread:", threadId);
+
             const response = await api.post(`/threads/${threadId}/messages`, messagePayload);
             const updatedThread = response.data;
 
-            // Replace messages with full updated list
-            setMessages(updatedThread.messages);
+            setMessages(sortMessagesByUpdated(updatedThread.messages));
             setNewMessage("");
 
-            // Update the thread title in the sidebar, if it changed
-            setThreads((prevThreads) =>
-                prevThreads.map((t) =>
-                    t.id === updatedThread.id ? { ...t, title: updatedThread.title } : t
-                )
+            setThreads(prevThreads =>
+                prevThreads.map(t => (t.id === updatedThread.id ? { ...t, title: updatedThread.title } : t))
             );
         } catch (error) {
             console.error("Error sending message:", error);
         }
     };
 
-    const handleUpdateMessage = async (id) => {
+    const handleUpdateMessage = async (messageId, updatedContent) => {
+        if (!updatedContent || updatedContent.trim() === "") return;
+
         try {
-            const response = await api.put(`/messages/${id}`, {
-                content: editedContent,
-                completionModel: selectedModel,
-                regenerate: true,
-            });
+            setMessages(prev =>
+                prev.map(msg => (msg.id === messageId ? { ...msg, content: updatedContent } : msg))
+            );
 
-            // Replace old message + assistant response
-            const updatedMessages = messages
-                .filter((msg) => msg.id !== id) // remove old user message
-                .filter((msg, i, arr) => !(arr[i - 1]?.id === id && msg.isCompletion)); // remove old assistant reply if right after
+            await axios.put(
+                `http://localhost:8080/messages/${messageId}`,
+                { content: updatedContent, isCompletion: false },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
 
-            setMessages([...updatedMessages, { id, content: editedContent, isCompletion: false, completionModel: selectedModel }, response.data]);
-            setEditingMessageId(null);
-            setEditedContent("");
-        } catch (err) {
-            console.error("Error updating message:", err);
+            const response = await axios.get(
+                `http://localhost:8080/threads/${selectedThreadId}/messages`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (Array.isArray(response.data)) {
+                setMessages(sortMessagesByUpdated(response.data));
+                setEditingMessageId(null);
+                setEditedContent("");
+            } else {
+                console.error("Expected an array of messages but got:", response.data);
+            }
+        } catch (error) {
+            console.error("Failed to update message or fetch messages:", error);
         }
     };
 
     const createNewThread = async () => {
         try {
-            const response = await api.post("/threads", {
-                completionModel: selectedModel, // Only send what's needed
-            });
+            const response = await api.post("/threads", { completionModel: selectedModel });
 
-            // Update UI with title fallback if needed
             const threadWithFallbackTitle = {
                 ...response.data,
-                title: response.data.title || "New Chat", // Only for display, not DB
+                title: response.data.title || "New Chat",
             };
 
-            setThreads((prev) => [...prev, threadWithFallbackTitle]);
+            setThreads(prev => [...prev, threadWithFallbackTitle]);
             setSelectedThreadId(response.data.id);
             router.push(`/chat?threadId=${response.data.id}`);
         } catch (error) {
@@ -197,12 +239,12 @@ export default function ChatPage() {
         try {
             await api.delete(`/threads/${threadIdToDelete}`);
             const res = await api.get("/threads");
-
             setThreads(res.data);
 
             if (selectedThreadId === threadIdToDelete) {
                 if (res.data.length > 0) {
-                    setSelectedThreadId(res.data[0].id);
+                    const newId = res.data[0].id;
+                    setSelectedThreadId(newId);
                     router.replace(`/chat?threadId=${newId}`);
                 } else {
                     setSelectedThreadId(null);
@@ -216,36 +258,28 @@ export default function ChatPage() {
 
     const handleDeleteMessageWithResponse = async (userMessageId) => {
         try {
-            // Find the index of the user message
             const userMessageIndex = messages.findIndex(msg => msg.id === userMessageId);
             if (userMessageIndex === -1) return;
 
-            // Find the assistant response immediately after the user message
             const assistantMessage = messages[userMessageIndex + 1];
-            // Delete the user message
             await api.delete(`/messages/${userMessageId}`);
 
-            // If next message exists and is assistant's response, delete it too
             if (assistantMessage?.isCompletion) {
                 try {
                     await api.delete(`/messages/${assistantMessage.id}`);
                 } catch (err) {
-                    if (err?.response?.status !== 404) {
-                        throw err;
-                    }
+                    if (err?.response?.status !== 404) throw err;
                 }
             }
 
-            // Update frontend state by removing both messages
-            setMessages(prevMessages => prevMessages.filter(
-                msg => msg.id !== userMessageId && msg.id !== (assistantMessage?.id)
-            ));
+            const updatedMessages = messages.filter(
+                msg => msg.id !== userMessageId && msg.id !== assistantMessage?.id
+            );
+            setMessages(sortMessagesByUpdated(updatedMessages));
         } catch (error) {
             console.error("Failed to delete messages:", error);
         }
     };
-
-    if (!isMounted) return null;
 
     const handleAccount = () => {
         window.location.href = "/account-settings";
@@ -256,41 +290,13 @@ export default function ChatPage() {
     };
 
     const handleLogout = () => {
-        // Clear auth data here, e.g.:
         localStorage.removeItem('authToken');
         window.location.href = "/login";
     };
 
-    // Example of making an API call with Authorization token
-    const getMessages = async (threadId) => {
-        try {
-            const authToken = localStorage.getItem('authToken');
-            const response = await axios.get(`/threads/${threadId}/messages`, {
-                headers: {
-                    Authorization: `Bearer ${authToken}`,
-                }
-            });
-        } catch (error) {
-            console.error("Error fetching messages", error);
-        }
-    };
+    if (!isMounted) return null;
 
-    const createMessage = async (threadId, messageContent) => {
-        const authToken = localStorage.getItem('authToken');
-
-        try {
-            const response = await axios.post(`/threads/${threadId}/messages`, {
-                content: messageContent,
-            }, {
-                headers: {
-                    Authorization: `Bearer ${authToken}`,
-                }
-            });
-
-        } catch (error) {
-            console.error("Error creating message", error);
-        }
-    };
+    const initials = getInitials(userName);
 
     return (
         <>
@@ -300,85 +306,128 @@ export default function ChatPage() {
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
                 <link rel="icon" href="/favicon.ico" />
             </Head>
+
             <div className="page-container">
                 <header>
                     <div className="header-content">
                         <div className="header-brand">
-                            <img src="./bootcamp-2025.03-logo.jpg" alt="Logo" className="header-logo" />
+                            <img
+                                src="./bootcamp-2025.03-logo.jpg"
+                                alt="Logo"
+                                className="header-logo"
+                            />
                             <div className="header-title">Chat Application</div>
                         </div>
+
                         <div className="profile-dropdown">
                             <input type="checkbox" id="profile-toggle" />
-                            <label htmlFor="profile-toggle" className="profile-icon">JD</label>
+                            <label htmlFor="profile-toggle" className="profile-icon">
+                                {initials || "??"}
+                            </label>
+
                             <div className="dropdown-menu">
-                                <a href="/account-settings" onClick={(e) => {
-                                    e.preventDefault();
-                                    handleAccount();
-                                }}>
+                                <a
+                                    href="/account-settings"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        handleAccount();
+                                    }}
+                                >
                                     Account Settings
                                 </a>
-                                <a href="/account-settings" onClick={(e) => {
-                                    e.preventDefault();
-                                    handlePassword();
-                                }}>
+
+                                <a
+                                    href="/account-settings"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        handlePassword();
+                                    }}
+                                >
                                     Change Password
                                 </a>
-                                <a href="/login" onClick={(e) => {
-                                    e.preventDefault();
-                                    handleLogout();
-                                }}>
+
+                                <a
+                                    href="/login"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        handleLogout();
+                                    }}
+                                >
                                     Logout
                                 </a>
                             </div>
+
                             <label htmlFor="profile-toggle" className="overlay"></label>
                         </div>
                     </div>
                 </header>
+
                 <div className="center-container">
                     <aside className="threads-list">
                         <h2>Threads</h2>
-                        <button onClick={createNewThread}>New Chat</button>
+                        <button
+                            className="new-chat-btn"
+                            onClick={createNewThread}
+                            aria-label="Start a new chat conversation"
+                        >
+                            <span className="plus-icon">＋</span> New Chat
+                        </button>
+
                         {threads.length === 0 ? (
-                            <p>No threads yet. Start a new conversation!</p>
+                            <div className="empty-threads-message">
+                                No threads yet.{" "}
+                                <button
+                                    className="new-chat-btn-inline"
+                                    onClick={createNewThread}
+                                >
+                                    Start a new conversation!
+                                </button>
+                            </div>
                         ) : (
                             <div className="threads">
-                                {threads.map((thread) => (
-                                    <div
-                                        key={thread.id}
-                                        className={`thread-item ${selectedThreadId === thread.id ? "active" : ""}`}
-                                        onClick={() => {
-                                            router.push(`/chat?threadId=${thread.id}`);
-                                            setSelectedThreadId(thread.id);
-                                            // Mark thread as read by clearing hasUnreadMessages immediately
-                                            setThreads((prevThreads) =>
-                                                prevThreads.map((t) =>
-                                                    t.id === thread.id ? { ...t, hasUnreadMessages: false } : t
-                                                )
-                                            );
-                                        }}
-                                    >
-                                        <span>
-                                            {thread.title.replace(/^["“]/, '')}
-                                            {thread.hasUnreadMessages && (
-                                                <span style={{ color: "red", marginLeft: "8px" }}>●</span>
-                                            )}
-                                        </span>
+                                {[...threads]
+                                    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                                    .map((thread) => {
+                                    const isSelected = selectedThreadId === thread.id;
 
-                                        {/* Delete button */}
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation(); // Prevent triggering thread select on delete
-                                                handleDeleteThread(thread.id);
-                                            }}
-                                            style={{ marginLeft: "10px", color: "red" }}
-                                        >
-                                            🗑️
-                                        </button>
-                                    </div>
-                                ))}
+                                        return (
+                                            <div
+                                                key={thread.id}
+                                                className={`thread-item ${isSelected ? "active" : ""}`}
+                                                onClick={() => {
+                                                    router.push(`/chat?threadId=${thread.id}`);
+                                                    setSelectedThreadId(thread.id);
+                                                }}
+                                            >
+                                                <div className="thread-title">
+                                                    {thread.title.replace(/^["“]/, '')}
+                                                </div>
+
+                                                <div className="thread-meta">
+                                                    <div className="timestamp">
+                                                        {thread.createdAt
+                                                            ? format(new Date(thread.createdAt), "PPpp")
+                                                            : "No timestamp"}
+                                                    </div>
+
+                                                    <div className="thread-actions">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteThread(thread.id);
+                                                            }}
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                             </div>
                         )}
                     </aside>
+
                     <main className="main-container">
                         <div className="chat-window">
                             {/* Model selector */}
@@ -393,66 +442,102 @@ export default function ChatPage() {
                                     <option value="deepseek-llm-67b">DeepSeek 67B</option>
                                 </select>
                             </div>
+
                             <div className="messages">
                                 {messages.map((msg, index) => {
                                     const isUser = !msg.isCompletion;
                                     const isEditing = editingMessageId === msg.id;
+                                    const timestamp =
+                                        new Date(msg.updatedAt) > new Date(msg.createdAt)
+                                            ? msg.updatedAt
+                                            : msg.createdAt;
+                                    const isEdited =
+                                        msg.updatedAt &&
+                                        new Date(msg.updatedAt) > new Date(msg.createdAt);
 
                                     const handleCopy = () => {
-                                        navigator.clipboard.writeText(msg.content)
-                                            .then(() => {
-                                                alert("Copied to clipboard!");
-                                            })
-                                            .catch((err) => {
-                                                console.error("Copy failed: ", err);
-                                            });
+                                        navigator.clipboard
+                                            .writeText(msg.content)
+                                            .then(() => alert("Copied to clipboard!"))
+                                            .catch((err) =>
+                                                console.error("Copy failed: ", err)
+                                            );
                                     };
 
                                     return (
-                                        <div key={msg.id} className={`message ${msg.isCompletion ? "bot" : "user"}`}>
-                                            {isUser && isEditing ? (
-                                                <div className="edit-container">
-                                                    <input
-                                                        type="text"
-                                                        value={editedContent}
-                                                        onChange={(e) => setEditedContent(e.target.value)}
-                                                        onKeyDown={(e) => e.key === "Enter" && handleUpdateMessage(msg.id)}
-                                                    />
-                                                    <button onClick={() => handleUpdateMessage(msg.id)}>Save</button>
-                                                    <button onClick={() => setEditingMessageId(null)}>Cancel</button>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    {msg.content}
-                                                    <button
-                                                        onClick={handleCopy}
-                                                    >
-                                                        📋
-                                                    </button>
-                                                    {isUser && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setEditingMessageId(msg.id);
-                                                                    setEditedContent(msg.content);
-                                                                }}
-                                                            >
-                                                                ✎
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteMessageWithResponse(msg.id)}
-                                                                style={{ color: "red" }}
-                                                            >
-                                                                🗑️
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </>
-                                            )}
+                                        <div
+                                            key={msg.id}
+                                            className={`message ${msg.isCompletion ? "bot" : "user"}`}
+                                        >
+                                            <div className="message-content">
+                                                {isUser && isEditing ? (
+                                                    <div className="edit-container">
+                                                        <input
+                                                            type="text"
+                                                            value={editedContent ?? ""}
+                                                            onChange={(e) => setEditedContent(e.target.value)}
+                                                            onKeyDown={(e) =>
+                                                                e.key === "Enter" &&
+                                                                handleUpdateMessage(msg.id, editedContent)
+                                                            }
+                                                        />
+                                                        <button
+                                                            onClick={() =>
+                                                                handleUpdateMessage(msg.id, editedContent)
+                                                            }
+                                                        >
+                                                            Save
+                                                        </button>
+                                                        <button onClick={() => setEditingMessageId(null)}>
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div>{msg.content}</div>
+
+                                                        <div className="message-meta">
+                                                            <div className="timestamp">
+                                                                {timestamp && !isNaN(new Date(timestamp)) && (
+                                                                    <>
+                                                                        {format(new Date(timestamp), "PPpp")}{" "}
+                                                                        {isEdited && "(Edited)"}
+                                                                    </>
+                                                                )}
+                                                            </div>
+
+                                                            <div className="message-actions">
+                                                                <button onClick={handleCopy}>📋</button>
+                                                                {isUser && (
+                                                                    <>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setEditingMessageId(msg.id);
+                                                                                setEditedContent(msg.content);
+                                                                            }}
+                                                                        >
+                                                                            ✎
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() =>
+                                                                                handleDeleteMessageWithResponse(msg.id)
+                                                                            }
+                                                                            style={{ color: "red" }}
+                                                                        >
+                                                                            🗑️
+                                                                        </button>
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
                                     );
                                 })}
                             </div>
+
                             <div className="input-container">
                                 <input
                                     type="text"
@@ -466,6 +551,7 @@ export default function ChatPage() {
                         </div>
                     </main>
                 </div>
+
                 <footer>© 2025 Chat App, Inc.</footer>
             </div>
         </>

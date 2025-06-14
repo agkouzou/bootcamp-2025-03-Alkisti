@@ -7,8 +7,7 @@ TRUNCATE TABLE
 CREATE TABLE IF NOT EXISTS threads (
                                        id BIGSERIAL PRIMARY KEY,
                                        title VARCHAR(255),
-                                       completion_model VARCHAR(255),
-                                       has_unread_messages BOOLEAN DEFAULT TRUE
+                                       completion_model VARCHAR(255)
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -20,7 +19,8 @@ CREATE TABLE IF NOT EXISTS messages (
                                         CONSTRAINT fk_thread FOREIGN KEY(thread_id) REFERENCES threads(id)
 );
 
-ALTER TABLE messages ALTER COLUMN content TYPE VARCHAR(2000);
+-- ALTER TABLE messages ALTER COLUMN content TYPE VARCHAR(2000);
+ALTER TABLE messages ALTER COLUMN content TYPE TEXT;
 
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS cart_items (
 
 -- Create test users
 INSERT INTO users (email, password, name, verified, verification_token)
-VALUES ('csekas@ctrlspace.dev', '123456', 'Chris Sekas', true, null);
+VALUES ('chris@ctrlspace.dev', '123456', 'Chris Sekas', true, null);
 
 INSERT INTO users (email, password, name, verified, verification_token)
 VALUES ('alkisti@ctrlspace.dev', '123456', 'Alkisti', true, null);
@@ -104,7 +104,7 @@ VALUES ('Iphone 14 Pro', 800.00, 15);
 INSERT INTO orders (user_id, status, created_at)
 SELECT id, 'pending', '2025-04-14 10:00:00'
 FROM users
-WHERE email = 'csekas@ctrlspace.dev';
+WHERE email = 'chris@ctrlspace.dev';
 
 -- Insert Cart Items for Order 1:
 
@@ -112,7 +112,7 @@ WHERE email = 'csekas@ctrlspace.dev';
 INSERT INTO cart_items (order_id, product_id, quantity)
 VALUES (
            (SELECT id FROM orders
-            WHERE user_id = (SELECT id FROM users WHERE email = 'csekas@ctrlspace.dev')
+            WHERE user_id = (SELECT id FROM users WHERE email = 'chris@ctrlspace.dev')
               AND created_at = '2025-04-14 10:00:00'),
            (SELECT id FROM products WHERE name = 'Macbook Pro'),
            1
@@ -122,7 +122,7 @@ VALUES (
 INSERT INTO cart_items (order_id, product_id, quantity)
 VALUES (
            (SELECT id FROM orders
-            WHERE user_id = (SELECT id FROM users WHERE email = 'csekas@ctrlspace.dev')
+            WHERE user_id = (SELECT id FROM users WHERE email = 'chris@ctrlspace.dev')
               AND created_at = '2025-04-14 10:00:00'),
            (SELECT id FROM products WHERE name = 'Iphone 14'),
            2
@@ -169,7 +169,7 @@ VALUES (
 INSERT INTO orders (user_id, status, created_at)
 SELECT id, 'completed', '2025-04-11 08:20:00'
 FROM users
-WHERE email = 'csekas@ctrlspace.dev';
+WHERE email = 'chris@ctrlspace.dev';
 
 -- Insert Cart Items for Order 4:
 
@@ -177,7 +177,7 @@ WHERE email = 'csekas@ctrlspace.dev';
 INSERT INTO cart_items (order_id, product_id, quantity)
 VALUES (
            (SELECT id FROM orders
-            WHERE user_id = (SELECT id FROM users WHERE email = 'csekas@ctrlspace.dev')
+            WHERE user_id = (SELECT id FROM users WHERE email = 'chris@ctrlspace.dev')
               AND created_at = '2025-04-11 08:20:00'),
            (SELECT id FROM products WHERE name = 'Macbook Air'),
            2
@@ -187,7 +187,7 @@ VALUES (
 INSERT INTO cart_items (order_id, product_id, quantity)
 VALUES (
            (SELECT id FROM orders
-            WHERE user_id = (SELECT id FROM users WHERE email = 'csekas@ctrlspace.dev')
+            WHERE user_id = (SELECT id FROM users WHERE email = 'chris@ctrlspace.dev')
               AND created_at = '2025-04-11 08:20:00'),
            (SELECT id FROM products WHERE name = 'Iphone 14'),
            1

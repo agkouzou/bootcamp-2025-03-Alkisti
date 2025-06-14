@@ -8,7 +8,7 @@ from products;
 -- select users by criteria
 select *
 from users
-where email = 'csekas@ctrlspace.dev';
+where email = 'chris@ctrlspace.dev';
 
 select *
 from users

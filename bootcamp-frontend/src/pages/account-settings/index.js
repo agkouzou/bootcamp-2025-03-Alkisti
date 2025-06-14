@@ -1,8 +1,6 @@
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import Link from 'next/link';
-
 
 function parseJwt(token) {
     try {
@@ -21,6 +19,15 @@ function parseJwt(token) {
     }
 }
 
+function getInitials(name) {
+    if (!name || typeof name !== "string") return "";
+    const cleanedName = name.trim();
+    if (cleanedName === "" || cleanedName.toLowerCase() === "undefined") return "";
+    const parts = cleanedName.split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export default function AccountPage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -29,52 +36,53 @@ export default function AccountPage() {
     const [job, setJob] = useState("");
     const [notes, setNotes] = useState("");
     const [traits, setTraits] = useState([]);
+
+    const [message, setMessage] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [userId, setUserId] = useState(null);
+    const [token, setToken] = useState(null);
+    const [userName, setUserName] = useState("");
+
     const traitOptions = [
         "Chatty", "Witty", "Straight shooting", "Encouraging",
         "Gen Z", "Skeptical", "Traditional", "Forward thinking", "Poetic"
     ];
-    const [message, setMessage] = useState("");
-    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        const token = localStorage.getItem("authToken");
+        const storedToken = localStorage.getItem("authToken");
 
-        if (!token) {
+        if (!storedToken) {
             console.warn("No token found, redirecting to login...");
             window.location.href = "/login";
             return;
         }
 
-        const decoded = parseJwt(token);
-        console.log("Decoded JWT:", decoded);
+        setToken(storedToken);
+        const decoded = parseJwt(storedToken);
+        const uid = parseInt(decoded?.sub);
 
-        const userId = parseInt(decoded?.sub);
-
-        if (!userId || isNaN(userId)) {
+        if (!uid || isNaN(uid)) {
             console.error("Invalid user ID from token, redirecting...");
             window.location.href = "/login";
             return;
         }
 
+        setUserId(uid);
+
         const fetchData = async () => {
             try {
-                const userResponse = await axios.get(`http://localhost:8080/users/${userId}`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
+                const userRes = await axios.get(`http://localhost:8080/users/${uid}`, {
+                    headers: { Authorization: `Bearer ${storedToken}` }
                 });
-                const userData = userResponse.data;
+                const profileRes = await axios.get(`http://localhost:8080/users/${uid}/profile-settings`, {
+                    headers: { Authorization: `Bearer ${storedToken}` }
+                });
+
+                const userData = userRes.data;
+                const profileData = profileRes.data || {};
 
                 setName(userData.name || "");
                 setEmail(userData.email || "");
-
-                const profileResponse = await axios.get(`http://localhost:8080/users/${userId}/profile-settings`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
-                const profileData = profileResponse.data || {};
-
                 setIntro(profileData.introduction || "");
                 setNickname(profileData.nickname || "");
                 setJob(profileData.job || "");
@@ -82,7 +90,6 @@ export default function AccountPage() {
                 setTraits(profileData.traits || []);
             } catch (e) {
                 if (e.response?.status === 401) {
-                    console.warn("Unauthorized. Redirecting to login.");
                     localStorage.removeItem("authToken");
                     window.location.href = "/login";
                 } else {
@@ -94,11 +101,25 @@ export default function AccountPage() {
         fetchData();
     }, []);
 
+    useEffect(() => {
+        if (!token || !userId) return;
+
+        axios.get(`http://localhost:8080/users/${userId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then(res => {
+                const nameFromApi = res.data.name;
+                setUserName(nameFromApi && nameFromApi !== "undefined" ? nameFromApi : "");
+            })
+            .catch(err => {
+                console.error("Failed to fetch user info:", err);
+                setUserName("");
+            });
+    }, [token, userId]);
+
     const toggleTrait = (trait) => {
-        setTraits((prev) =>
-            prev.includes(trait)
-                ? prev.filter((t) => t !== trait)
-                : [...prev, trait]
+        setTraits(prev =>
+            prev.includes(trait) ? prev.filter(t => t !== trait) : [...prev, trait]
         );
     };
 
@@ -108,7 +129,6 @@ export default function AccountPage() {
         setLoading(true);
 
         const token = localStorage.getItem("authToken");
-
         const decoded = parseJwt(token);
         const userId = parseInt(decoded?.sub);
 
@@ -119,56 +139,19 @@ export default function AccountPage() {
         }
 
         const userData = { name, email };
-        const profileData = {
-            introduction: intro,
-            nickname,
-            job,
-            notes,
-            traits
-        };
+        const profileData = { introduction: intro, nickname, job, notes, traits };
 
         try {
             await axios.put(`http://localhost:8080/users/${userId}`, userData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
+                headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
             });
 
             await axios.put(`http://localhost:8080/users/${userId}/profile-settings`, profileData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
+                headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
             });
-
-            // Fetch fresh user info
-            const refreshedUserResponse = await axios.get(`http://localhost:8080/users/${userId}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const refreshedUser = refreshedUserResponse.data;
-            setName(refreshedUser.name || "");
-            setEmail(refreshedUser.email || "");
-
-            // Fetch fresh profile settings
-            const refreshedProfileResponse = await axios.get(`http://localhost:8080/users/${userId}/profile-settings`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const refreshedProfile = refreshedProfileResponse.data || {};
-            setIntro(refreshedProfile.intro || "");
-            setNickname(refreshedProfile.nickname || "");
-            setJob(refreshedProfile.job || "");
-            setNotes(refreshedProfile.notes || "");
-            setTraits(refreshedProfile.traits || []);
-
-            await new Promise((resolve) => setTimeout(resolve, 1000));
 
             setMessage("Profile updated successfully!");
-
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
-
+            setTimeout(() => window.location.reload(), 2000);
         } catch (e) {
             if (e.response?.status === 401) {
                 alert("Session expired. Please log in again.");
@@ -183,137 +166,79 @@ export default function AccountPage() {
         }
     };
 
-    const handleAccount = () => {
-        window.location.href = "/account-settings";
-    };
+    const handleAccount = () => window.location.href = "/account-settings";
 
-    const handlePassword = () => {
-        window.location.href = "/change-password";
-    };
+    const handlePassword = () => window.location.href = "/change-password";
 
     const handleLogout = () => {
-        // Clear auth data here, e.g.:
         localStorage.removeItem('authToken');
         window.location.href = "/login";
     };
 
-    const getUserInfo = async () => {
-        const authToken = localStorage.getItem('authToken');
-
-        try {
-            const response = await axios.get('/user/profile', {
-                headers: {
-                    Authorization: `Bearer ${authToken}`,
-                },
-            });
-        } catch (error) {
-            console.error("Error fetching user info", error);
-        }
-    };
-
-    const updateProfile = async (updatedUserInfo) => {
-        const authToken = localStorage.getItem('authToken');
-
-        try {
-            const response = await axios.put('/user/profile', updatedUserInfo, {
-                headers: {
-                    Authorization: `Bearer ${authToken}`,
-                },
-            });
-        } catch (error) {
-            console.error("Error updating profile", error);
-        }
-    };
+    const initials = getInitials(userName);
 
     return (
         <>
             <Head>
                 <title>Account Settings</title>
-                <meta name="description" content="Manage your profile"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <link rel="icon" href="/favicon.ico"/>
+                <meta name="description" content="Manage your profile" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <link rel="icon" href="/favicon.ico" />
             </Head>
 
             <div className="page-container">
                 <header>
                     <div className="header-content">
                         <div className="header-brand">
-                            <img src="./bootcamp-2025.03-logo.jpg" alt="Logo" className="header-logo"/>
+                            <img src="./bootcamp-2025.03-logo.jpg" alt="Logo" className="header-logo" />
                             <div className="header-title">Chat Application</div>
                         </div>
                         <div className="profile-dropdown">
-                            <input type="checkbox" id="profile-toggle"/>
-                            <label htmlFor="profile-toggle" className="profile-icon">JD</label>
+                            <input type="checkbox" id="profile-toggle" />
+                            <label htmlFor="profile-toggle" className="profile-icon">
+                                {initials || "??"}
+                            </label>
                             <div className="dropdown-menu">
-                                <a href="/account-settings" onClick={(e) => {
-                                    e.preventDefault();
-                                    handleAccount();
-                                }}>
-                                    Account Settings
-                                </a>
-                                <a href="/account-settings" onClick={(e) => {
-                                    e.preventDefault();
-                                    handlePassword();
-                                }}>
-                                    Change Password
-                                </a>
-                                <a href="/login" onClick={(e) => {
-                                    e.preventDefault();
-                                    handleLogout();
-                                }}>
-                                    Logout
-                                </a>
+                                <a href="/account-settings" onClick={(e) => { e.preventDefault(); handleAccount(); }}>Account Settings</a>
+                                <a href="/account-settings" onClick={(e) => { e.preventDefault(); handlePassword(); }}>Change Password</a>
+                                <a href="/login" onClick={(e) => { e.preventDefault(); handleLogout(); }}>Logout</a>
                             </div>
                             <label htmlFor="profile-toggle" className="overlay"></label>
                         </div>
                     </div>
                 </header>
+
                 <div className="content">
                     <div className="account-settings">
                         <h1>Account Settings</h1>
-                        <Link href="/chat">
-                            <button
-                                type="button"
-                                className="submit-btn"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    window.location.href = '/chat';
-                                }}
-                            >
-                                <span>←</span> Back to Chat
-                            </button>
-                        </Link>
                         <form onSubmit={handleSubmit}>
                             <div className="form-group">
                                 <label htmlFor="name">Name</label>
-                                <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)}/>
+                                <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} />
                             </div>
                             <div className="form-group">
                                 <label htmlFor="email">Email</label>
-                                <input type="email" id="email" value={email}
-                                       onChange={(e) => setEmail(e.target.value)}/>
+                                <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                             </div>
                             <div className="form-group">
                                 <label htmlFor="intro">Customize ChatGPT</label>
                                 <small>Introduce yourself to get better, more personalized responses</small>
-                                <textarea id="intro" rows="3" value={intro} onChange={(e) => setIntro(e.target.value)}/>
+                                <textarea id="intro" rows="3" value={intro} onChange={(e) => setIntro(e.target.value)} />
                             </div>
                             <div className="form-group">
                                 <label htmlFor="nickname">What should ChatGPT call you?</label>
-                                <input type="text" id="nickname" value={nickname}
-                                       onChange={(e) => setNickname(e.target.value)}/>
+                                <input type="text" id="nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} />
                             </div>
                             <div className="form-group">
                                 <label htmlFor="job">What do you do?</label>
-                                <input type="text" id="job" value={job} onChange={(e) => setJob(e.target.value)}/>
+                                <input type="text" id="job" value={job} onChange={(e) => setJob(e.target.value)} />
                             </div>
                             <div className="form-group">
                                 <label>What traits should ChatGPT have?</label>
                                 <div className="traits">
                                     {traitOptions.map((trait) => (
                                         <label key={trait}>
-                                            <input type="checkbox" checked={traits.includes(trait)}
-                                                   onChange={() => toggleTrait(trait)}/>
+                                            <input type="checkbox" checked={traits.includes(trait)} onChange={() => toggleTrait(trait)} />
                                             {trait}
                                         </label>
                                     ))}
@@ -321,11 +246,16 @@ export default function AccountPage() {
                             </div>
                             <div className="form-group">
                                 <label htmlFor="notes">Anything else ChatGPT should know about you?</label>
-                                <textarea id="notes" rows="3" value={notes} onChange={(e) => setNotes(e.target.value)}/>
+                                <textarea id="notes" rows="3" value={notes} onChange={(e) => setNotes(e.target.value)} />
                             </div>
-                            <button type="submit" className="submit-btn" disabled={loading}>
-                                {loading ? "Processing..." : "Save Changes"}
-                            </button>
+                            <div className="form-actions">
+                                <button type="submit" className="submit-btn" disabled={loading}>
+                                    {loading ? "Processing..." : "Save Changes"}
+                                </button>
+                                <a href="/chat" className="btn btn-secondary" style={{ marginLeft: "10px", textDecoration: "none" }}>
+                                    Back to Chat
+                                </a>
+                            </div>
                             {message && (
                                 <div style={{ marginTop: "10px", fontSize: "14px" }}>
                                     {message}
@@ -334,6 +264,7 @@ export default function AccountPage() {
                         </form>
                     </div>
                 </div>
+
                 <footer>© 2025 Chat App, Inc.</footer>
             </div>
         </>

@@ -5,6 +5,7 @@ import axios from "axios";
 
 export default function ResetPasswordPage() {
     const router = useRouter();
+
     const [token, setToken] = useState(null);
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -24,7 +25,7 @@ export default function ResetPasswordPage() {
 
     async function handleSubmit(e) {
         e.preventDefault();
-        setMessage(null);
+        setMessage("");
 
         if (password !== confirmPassword) {
             setMessage("Passwords do not match.");
@@ -41,17 +42,14 @@ export default function ResetPasswordPage() {
 
             setPassword("");
             setConfirmPassword("");
-
-            setTimeout(() => {
-                setMessage("Password reset successful! Redirecting to login...");
-                setLoading(false); // Re-enable button
-            }, 1000);
+            setMessage("Password reset successful! Redirecting to login...");
 
             setTimeout(() => {
                 router.push("/login");
             }, 3000);
         } catch (error) {
             setMessage("Failed to reset password. The token may be invalid or expired.");
+        } finally {
             setLoading(false);
         }
     }
@@ -80,7 +78,7 @@ export default function ResetPasswordPage() {
                 </header>
 
                 <div className="content">
-                    <div className="form-section single-form">
+                    <div className="account-settings">
                         <h1>Reset Password</h1>
                         <form onSubmit={handleSubmit}>
                             <div className="form-group">

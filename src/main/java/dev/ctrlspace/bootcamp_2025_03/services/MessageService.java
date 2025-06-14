@@ -4,7 +4,6 @@ import dev.ctrlspace.bootcamp_2025_03.exceptions.BootcampException;
 import dev.ctrlspace.bootcamp_2025_03.model.Message;
 import dev.ctrlspace.bootcamp_2025_03.model.Thread;
 import dev.ctrlspace.bootcamp_2025_03.model.User;
-import dev.ctrlspace.bootcamp_2025_03.model.UserProfileSettings;
 import dev.ctrlspace.bootcamp_2025_03.model.dto.*;
 import dev.ctrlspace.bootcamp_2025_03.repository.MessageRepository;
 import dev.ctrlspace.bootcamp_2025_03.repository.ThreadRepository;
@@ -52,7 +51,7 @@ public class MessageService {
         String userIdStr = jwt.getClaim("sub");
         Long userId = Long.parseLong(userIdStr);
 
-        boolean isOwner = threadRepository.existsByIdAndUserId(threadId, userId);
+        boolean isOwner = threadRepository.existsByIdAndUser_Id(threadId, userId);
         if (!isOwner) {
             throw new BootcampException(HttpStatus.FORBIDDEN, "You do not have access to this thread.");
         }
@@ -99,8 +98,6 @@ public class MessageService {
             // Step 4: Generate assistant's response
             Message responseMessage = generateCompletion(threadHistory, model, thread);
 
-            thread.setHasUnreadMessages(true);
-
             // Step 5: Prepare updated history including assistant response
             List<Message> updatedHistory = new ArrayList<>(threadHistory);
             updatedHistory.add(responseMessage);
@@ -141,14 +138,6 @@ public class MessageService {
             threadRepository.save(thread);
             return toDto(responseMessage);
 
-//            return new MessageResponse(
-//                    responseMessage.getId(),
-//                    responseMessage.getContent(),
-//                    responseMessage.getIsCompletion(),
-//                    responseMessage.getCompletionModel(),
-//                    responseMessage.getThread().getId()
-//            );
-
         } catch (BootcampException be) {
             throw be;
         } catch (Exception e) {
@@ -158,6 +147,10 @@ public class MessageService {
     }
 
     public MessageResponse updateMessage(Long id, MessageRequest updatedMessage, Authentication authentication) throws BootcampException {
+        if (updatedMessage.getContent() == null || updatedMessage.getContent().trim().isEmpty()) {
+            throw new BootcampException(HttpStatus.BAD_REQUEST, "Message content cannot be empty.");
+        }
+
         Message existing = messageRepository.findById(id)
                 .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "Message not found with id: " + id));
 
@@ -201,24 +194,9 @@ public class MessageService {
             Message responseMessage = generateCompletion(boundedHistory, existing.getCompletionModel(), existing.getThread());
 
             return toDto(responseMessage);
-//            return new MessageResponse(
-//                    responseMessage.getId(),
-//                    responseMessage.getContent(),
-//                    responseMessage.getIsCompletion(),
-//                    responseMessage.getCompletionModel(),
-//                    responseMessage.getThread().getId()
-//            );
         }
 
         return toDto(existing);
-
-//        return new MessageResponse(
-//                existing.getId(),
-//                existing.getContent(),
-//                existing.getIsCompletion(),
-//                existing.getCompletionModel(),
-//                existing.getThread().getId()
-//        );
     }
 
     public List<MessageResponse> getMessagesByThreadId(Long threadId, Authentication authentication) throws BootcampException {
@@ -236,15 +214,6 @@ public class MessageService {
         List<MessageResponse> result = new ArrayList<>();
         for (Message m : messages) {
             result.add(toDto(m));
-
-//            // Add the message along with the thread name
-//            result.add(new MessageResponse(
-//                    m.getId(),
-//                    m.getContent(),
-//                    m.getIsCompletion(),
-//                    m.getCompletionModel(),
-//                    threadId
-//            ));
         }
 
         return result;
@@ -257,17 +226,6 @@ public class MessageService {
         checkThreadOwnership(m.getThread().getId(), authentication);
 
         return toDto(m);
-
-//        Long threadId = m.getThread() != null ? m.getThread().getId() : null;
-//
-//        return new MessageResponse(
-//                m.getId(),
-//                m.getContent(),
-//                m.getIsCompletion(),
-//                m.getCompletionModel(),
-//                threadId
-//        );
-
     }
 
     public void deleteMessage(Long id, Authentication authentication) throws BootcampException {
@@ -277,7 +235,7 @@ public class MessageService {
         checkThreadOwnership(message.getThread().getId(), authentication);
 
         if (!message.getIsCompletion()) {
-            // If it's a user message, try to find and delete its assistant response
+            // If it's a user message, find and delete its assistant response
             Optional<Message> assistantReply = findAssistantResponseFor(message);
             assistantReply.ifPresent(reply -> messageRepository.deleteById(reply.getId()));
         }
@@ -330,6 +288,9 @@ public class MessageService {
 
         // Convert full history to OpenAI-style messages
         for (Message m : history) {
+            if (m.getContent() == null || m.getContent().trim().isEmpty()) {
+                continue; // Skip invalid messages
+            }
             String role = Boolean.TRUE.equals(m.getIsCompletion()) ? "assistant" : "user";
             messages.add(new ChatMessage(role, m.getContent()));
         }

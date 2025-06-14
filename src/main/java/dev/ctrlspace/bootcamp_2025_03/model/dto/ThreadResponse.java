@@ -14,7 +14,6 @@ public class ThreadResponse {
     private Long id;
     private String title;
     private String completionModel;
-    private boolean hasUnreadMessages;
     private List<MessageResponse> messages;
     private Instant createdAt;
     private Instant updatedAt;

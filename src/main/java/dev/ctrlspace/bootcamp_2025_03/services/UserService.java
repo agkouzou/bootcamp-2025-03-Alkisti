@@ -37,7 +37,7 @@ public class UserService implements UserDetailsService {
         this.emailService = emailService;
 
         users = new ArrayList<>();
-        User chris = new User(1, "Chris Sekas", "csekas@ctrlspace.dev", "123456");
+        User chris = new User(1, "Chris Sekas", "chris@ctrlspace.dev", "123456");
         users.add(chris);
         users.add(new User(2, "Mary", "mary@gmail.com", "123456"));
         users.add(new User(3, "Nick", "Nick@gmail.com", "123456"));

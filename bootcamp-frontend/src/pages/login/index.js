@@ -3,42 +3,27 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/router";
 
-
-/**
- * 1. User fill in email and password to login
- * 2. send POST /login with Basic Auth to the server
- * 3. if success,
- *     - Store token in local storage
- *     - redirect to chat page
- * @return {JSX.Element}
- * @constructor
- */
 export default function LoginPage() {
-
-    // let surname = "Sekas"
+    const router = useRouter();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
+
     const [signupName, setSignupName] = useState("");
     const [signupEmail, setSignupEmail] = useState("");
     const [signupPassword, setSignupPassword] = useState("");
     const [signupConfirm, setSignupConfirm] = useState("");
     const [signupLoading, setSignupLoading] = useState(false);
     const [signupMessage, setSignupMessage] = useState(null);
-    const router = useRouter();
 
     useEffect(() => {
-
-        // Check if user is already logged in
-        let authToken = localStorage.getItem("authToken");
-
-        if (authToken != null) {
+        const authToken = localStorage.getItem("authToken");
+        if (authToken) {
             window.location.href = "/chat";
         }
 
-        // If a token is in the URL, attempt to verify it
         const { token } = router.query;
         if (token) {
             axios
@@ -55,13 +40,12 @@ export default function LoginPage() {
         }
     }, [router.query]);
 
-    function handleEmailChange(event) {
-        // console.log("Email changed to: ", event.target.value);
-        setEmail(event.target.value);
+    function handleEmailChange(e) {
+        setEmail(e.target.value);
     }
 
-    function handlePasswordChange(event) {
-        setPassword(event.target.value);
+    function handlePasswordChange(e) {
+        setPassword(e.target.value);
     }
 
     async function handleLogin(e) {
@@ -75,62 +59,30 @@ export default function LoginPage() {
             return;
         }
 
-        let credentials = btoa(email + ":" + password);
+        const credentials = btoa(`${email}:${password}`);
 
         try {
-
-            let response = await axios.post(
+            const response = await axios.post(
                 "http://localhost:8080/users/login",
-                {}, // No body
+                {},
                 {
                     headers: {
-                        "Authorization": `Basic ${credentials}`,
-                        "Content-Type": "application/json"
-                    }
+                        Authorization: `Basic ${credentials}`,
+                        "Content-Type": "application/json",
+                    },
                 }
             );
 
-            // console.log("Login successful");
-            // Store token in local storage after successful login
             localStorage.setItem("authToken", response.data.token);
-
-            // setLoading(false);
-            // Redirect to chat page
             window.location.href = "/chat";
-
-        } catch (e) {
-            // console.log("Login failed");
+        } catch {
             setMessage("Login failed. Please check your email and password.");
             setEmail("");
             setPassword("");
             setLoading(false);
         }
-
-
-        // console.log("Response: ", response.data);
-
-
     }
 
-    // const login = async (credentials) => {
-    //     try {
-    //         const response = await axios.post('/login', {
-    //             email: credentials.email,   // Or `username` based on backend changes
-    //             password: credentials.password,
-    //         });
-    //
-    //         // Assuming the backend responds with a token
-    //         localStorage.setItem('authToken', response.data.token); // Store the token
-    //
-    //         // Redirect or update UI accordingly
-    //         navigateToHomePage();
-    //     } catch (error) {
-    //         console.error("Login failed", error);
-    //         // Handle error display to user
-    //     }
-    // };
-
-    // Signup handlers
     function handleSignupNameChange(e) {
         setSignupName(e.target.value);
     }
@@ -187,13 +139,11 @@ export default function LoginPage() {
             setTimeout(() => {
                 window.location.href = "/login";
             }, 3000);
-        } catch (error) {
+        } catch {
             setSignupMessage("Signup failed. Try again.");
             setSignupLoading(false);
         }
     }
-
-
 
     return (
         <>
@@ -203,28 +153,18 @@ export default function LoginPage() {
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
                 <link rel="icon" href="/favicon.ico" />
             </Head>
+
             <div className="page-container">
                 <header>
                     <div className="header-content">
                         <div className="header-brand">
-                            <img src="./bootcamp-2025.03-logo.jpg" alt="Logo" className="header-logo"/>
+                            <img
+                                src="./bootcamp-2025.03-logo.jpg"
+                                alt="Logo"
+                                className="header-logo"
+                            />
                             <div className="header-title">Chat Application</div>
                         </div>
-                        {/*<div className="profile-dropdown">*/}
-                        {/*    <input type="checkbox" id="profile-toggle"/>*/}
-                        {/*    <label htmlFor="profile-toggle" className="profile-icon">JD</label>*/}
-                        {/*    <div className="dropdown-menu">*/}
-                        {/*        <a href="#">Account Settings</a>*/}
-                        {/*        <a href="#">Change Password</a>*/}
-                        {/*        <a href="/login" onClick={(e) => {*/}
-                        {/*            e.preventDefault();*/}
-                        {/*            handleLogout();*/}
-                        {/*        }}>*/}
-                        {/*            Logout*/}
-                        {/*        </a>*/}
-                        {/*    </div>*/}
-                        {/*    <label htmlFor="profile-toggle" className="overlay"></label>*/}
-                        {/*</div>*/}
                     </div>
                 </header>
 
@@ -262,7 +202,11 @@ export default function LoginPage() {
                                     />
                                 </div>
                                 <div className="form-actions">
-                                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary"
+                                        disabled={loading}
+                                    >
                                         {loading ? "Signing in..." : "Sign In"}
                                     </button>
                                     <label htmlFor="tab-signup" className="btn btn-link">
@@ -330,7 +274,11 @@ export default function LoginPage() {
                                     <label htmlFor="tab-login" className="btn btn-link">
                                         Sign In
                                     </label>
-                                    <button type="submit" className="btn btn-primary" disabled={signupLoading}>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary"
+                                        disabled={signupLoading}
+                                    >
                                         {signupLoading ? "Signing up..." : "Create Account"}
                                     </button>
                                 </div>

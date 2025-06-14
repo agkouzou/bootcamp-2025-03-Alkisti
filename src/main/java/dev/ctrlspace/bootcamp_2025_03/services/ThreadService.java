@@ -75,7 +75,6 @@ public class ThreadService {
             thread.setTitle(null);
         }
 
-        thread.setHasUnreadMessages(false);
         thread.setUser(currentUser);
 
         Instant now = Instant.now();
@@ -85,49 +84,17 @@ public class ThreadService {
         Thread saved = threadRepository.save(thread);
 
         return toDto(saved);
-//        return new ThreadResponse(
-//                saved.getId(),
-//                saved.getTitle(),
-//                saved.getCompletionModel(),
-//                false,
-//                new ArrayList<>()
-//        );
     }
 
     public List<ThreadResponse> getAllThreads(Authentication authentication) throws BootcampException {
         User currentUser = getCurrentUser(authentication);
         Long userId = currentUser.getId();
 
-        List<Thread> threads = threadRepository.findAllByUserId(userId);  // filter by user id
+        List<Thread> threads = threadRepository.findAllByUser_Id(userId);  // filter by user id
         List<ThreadResponse> dtoList = new ArrayList<>();
 
         for (Thread thread : threads) {
             dtoList.add(toDto(thread));
-//            List<MessageResponse> messageDtos = new ArrayList<>();
-//
-//            String threadTitle = thread.getTitle();
-//            if (threadTitle == null || threadTitle.isBlank()) {
-//                threadTitle = "Untitled Thread";
-//            }
-//
-//            for (Message message : thread.getMessages()) {
-//                messageDtos.add(new MessageResponse(
-//                        message.getId(),
-//                        message.getContent(),
-//                        message.getIsCompletion(),
-//                        message.getCompletionModel(),
-//                        thread.getId()
-//                ));
-//            }
-//
-//            // Add the thread response to the final list
-//            dtoList.add(new ThreadResponse(
-//                    thread.getId(),
-//                    threadTitle,
-//                    thread.getCompletionModel(),
-//                    thread.isHasUnreadMessages(),
-//                    messageDtos
-//            ));
         }
         return dtoList;
     }
@@ -136,22 +103,9 @@ public class ThreadService {
         User currentUser = getCurrentUser(authentication);
         Long userId = currentUser.getId();
 
-        Thread thread = threadRepository.findByIdAndUserId(id, userId)
+        Thread thread = threadRepository.findByIdAndUser_Id(id, userId)
                 .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "Thread not found or not owned by user"));
 
-//        List<MessageResponse> messages = messageService.getMessagesByThreadId(id, authentication);
-
-//        String threadTitle = (thread.getTitle() == null || thread.getTitle().isBlank())
-//                ? "Untitled Thread"
-//                : thread.getTitle();
-
-//        return new ThreadResponse(
-//                thread.getId(),
-//                threadTitle,
-//                thread.getCompletionModel(),
-//                thread.isHasUnreadMessages(),
-//                messages
-//        );
         return toDto(thread);
     }
 
@@ -159,7 +113,7 @@ public class ThreadService {
         User currentUser = getCurrentUser(authentication);
         Long userId = currentUser.getId();
 
-        Thread existing = threadRepository.findByIdAndUserId(id, userId)
+        Thread existing = threadRepository.findByIdAndUser_Id(id, userId)
                 .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "Thread not found or not owned by user"));
 
         existing.setTitle(updatedThread.getTitle());
@@ -172,7 +126,7 @@ public class ThreadService {
         User currentUser = getCurrentUser(authentication);
         Long userId = currentUser.getId();
 
-        Thread thread = threadRepository.findByIdAndUserId(id, userId)
+        Thread thread = threadRepository.findByIdAndUser_Id(id, userId)
                 .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "Thread not found or not owned by user"));
 
         threadRepository.delete(thread);
@@ -201,43 +155,13 @@ public class ThreadService {
             threadTitle = "Untitled Thread";
         }
 
-//        for (Message message : thread.getMessages()) {
-//            messageDtos.add(new MessageResponse(
-//                    message.getId(),
-//                    message.getContent(),
-//                    message.getIsCompletion(),
-//                    message.getCompletionModel(),
-//                    thread.getId()
-//            ));
-//        }
-
         return new ThreadResponse(
                 thread.getId(),
                 threadTitle,
                 thread.getCompletionModel(),
-                thread.isHasUnreadMessages(),
                 messageDtos,
                 thread.getCreatedAt(),
                 thread.getUpdatedAt()
         );
-    }
-
-    @Transactional
-    public void markThreadAsRead(Long threadId, Authentication authentication) throws BootcampException {
-        User currentUser = getCurrentUser(authentication);
-
-        Thread thread = threadRepository.findByIdAndUserId(threadId, currentUser.getId())
-                .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "Thread not found or not owned by user"));
-
-////        Long userId = currentUser.getId();
-//
-//        Thread thread = threadRepository.findById(threadId)
-//                .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "Thread not found with id: " + threadId));
-
-        if (thread.isHasUnreadMessages()) {
-            thread.setHasUnreadMessages(false);
-            thread.setUpdatedAt(Instant.now());
-            threadRepository.save(thread);
-        }
     }
 }

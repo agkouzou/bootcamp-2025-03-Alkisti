@@ -7,16 +7,17 @@ export default function ForgotPasswordPage() {
     const [message, setMessage] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    function handleReturnToLoginClick() {
+    const handleReturnToLoginClick = () => {
         setTimeout(() => {
             window.location.href = "/login";
         }, 200);
-    }
+    };
 
-    async function handleSubmit(e) {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setMessage(null);
+
         try {
             await axios.post("http://localhost:8080/users/password-reset-request", { email });
             setMessage(
@@ -35,12 +36,13 @@ export default function ForgotPasswordPage() {
                     .
                 </>
             );
-            setEmail(""); // <-- Clear email input once successful
+            setEmail(""); // Clear input on success
         } catch (error) {
             setMessage("Error sending reset link, please try again.");
         }
+
         setLoading(false);
-    }
+    };
 
     return (
         <>
@@ -55,14 +57,18 @@ export default function ForgotPasswordPage() {
                 <header>
                     <div className="header-content">
                         <div className="header-brand">
-                            <img src="./bootcamp-2025.03-logo.jpg" alt="Logo" className="header-logo" />
+                            <img
+                                src="./bootcamp-2025.03-logo.jpg"
+                                alt="Logo"
+                                className="header-logo"
+                            />
                             <div className="header-title">Chat Application</div>
                         </div>
                     </div>
                 </header>
 
                 <div className="content">
-                    <div className="form-section single-form">
+                    <div className="account-settings">
                         <h1>Forgot Password</h1>
                         <form onSubmit={handleSubmit}>
                             <div className="form-group">
@@ -77,8 +83,9 @@ export default function ForgotPasswordPage() {
                                     disabled={loading}
                                 />
                             </div>
+
                             <div className="form-actions">
-                                <button type="submit" className="btn btn-primary" disabled={loading}>
+                                <button type="submit" className="submit-btn" disabled={loading}>
                                     {loading ? "Sending..." : "Send Reset Link"}
                                 </button>
                                 <a
@@ -89,7 +96,8 @@ export default function ForgotPasswordPage() {
                                     Cancel
                                 </a>
                             </div>
-                            {message && <p>{message}</p>}
+
+                            {message && <p style={{ marginTop: "12px" }}>{message}</p>}
                         </form>
                     </div>
                 </div>
