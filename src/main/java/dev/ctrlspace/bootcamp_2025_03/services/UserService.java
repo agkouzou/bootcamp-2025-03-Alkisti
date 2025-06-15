@@ -43,20 +43,9 @@ public class UserService implements UserDetailsService {
         users.add(new User(3, "Nick", "Nick@gmail.com", "123456"));
         users.add(new User(4, "Alkisti", "Alkisti@gmail.com", "123456"));
 
-//        users = List.of(chris,
-//                new User(2, "Mary", "mary@gmail.com", "123456"),
-//                new User(3, "Nick", "Nick@gmail.com", "123456"),
-//        new User(4, "Alkisti", "Alkisti@gmail.com", "123456"));
-
-
-
-
     }
 
     public List<User> getUsers() {
-
-        // TODO get users from database
-//        return users;
 
         List<User> allUsers = userRepository.findAll();
 
@@ -71,10 +60,6 @@ public class UserService implements UserDetailsService {
             return user.get();
         }
         throw new BootcampException(HttpStatus.NOT_FOUND, "User not found");
-
-//        return userRepository
-//                .findById(id)
-//                .orElseThrow(() -> new BootcampException(HttpStatus.NOT_FOUND, "User not found"));
 
     }
 
@@ -153,7 +138,6 @@ public class UserService implements UserDetailsService {
 
     public User deleteById(long id) throws BootcampException {
         User deletedUser = getUserById(id);
-//        userRepository.delete(deletedUser);
         userRepository.deleteById(id);
 
 

@@ -2,7 +2,7 @@ import Head from "next/head";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { useRouter } from "next/router";
-import { formatDistanceToNow, format } from "date-fns";
+import { format } from "date-fns";
 
 function parseJwt(token) {
     try {
@@ -63,7 +63,7 @@ export default function ChatPage() {
         headers: { Authorization: `Bearer ${token}` },
     });
 
-    // On mount: get token & userId
+    // On mount, get token and userId
     useEffect(() => {
         const t = localStorage.getItem("authToken");
         setToken(t);
@@ -430,7 +430,6 @@ export default function ChatPage() {
 
                     <main className="main-container">
                         <div className="chat-window">
-                            {/* Model selector */}
                             <div className="chat-model-select">
                                 <select
                                     id="model-select"

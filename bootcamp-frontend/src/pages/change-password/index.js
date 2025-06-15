@@ -218,7 +218,7 @@ export default function ChangePasswordPage() {
                             </div>
 
                             {(successMessage || errorMessage) && !loading && (
-                                <div style={{ marginTop: "10px", fontSize: "14px", color: successMessage ? "green" : "red" }}>
+                                <div style={{ marginTop: "10px", fontSize: "14px" }}>
                                     {successMessage || errorMessage}
                                 </div>
                             )}

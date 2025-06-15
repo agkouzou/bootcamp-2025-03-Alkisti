@@ -2,7 +2,6 @@ package dev.ctrlspace.bootcamp_2025_03.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-// Usage.java
 public class Usage {
     @JsonProperty("queue_time")
     private double queueTime;
@@ -19,5 +18,4 @@ public class Usage {
     @JsonProperty("total_time")
     private double totalTime;
 
-    // getters & setters omitted for brevity
 }

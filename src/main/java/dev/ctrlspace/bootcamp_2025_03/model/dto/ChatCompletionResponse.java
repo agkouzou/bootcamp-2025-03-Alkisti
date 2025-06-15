@@ -1,6 +1,5 @@
 package dev.ctrlspace.bootcamp_2025_03.model.dto;
 
-// ChatCompletionResponse.java
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,14 +19,8 @@ public class ChatCompletionResponse {
 
     private Usage usage;
 
-//    @JsonProperty("usage_breakdown")
-//    private UsageBreakdown usageBreakdown;
-
     @JsonProperty("system_fingerprint")
     private String systemFingerprint;
-
-//    @JsonProperty("x_groq")
-//    private XGroq xGroq;
 
 }
 

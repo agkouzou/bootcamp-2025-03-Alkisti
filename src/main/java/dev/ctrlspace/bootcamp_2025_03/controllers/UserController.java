@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -21,14 +20,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/users")
 public class UserController {
-
-    Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private UserService userService;
     private JwtEncoder jwtEncoder;
@@ -41,29 +37,6 @@ public class UserController {
 
     @Autowired
     private UserProfileSettingsService profileSettingsService;
-
-//    Remove this method to prevent fetching all users
-//    @GetMapping("")
-//    public List<User> getUsers() {
-//        logger.debug("Get all users from UserController");
-//        return userService.getUsers();
-//    }
-
-    //    HTTP GET /users/1   <- Rest APIs
-//    With Response Entity
-//    @GetMapping(value = "/{id}")
-//    public ResponseEntity<User> getUserById(@PathVariable long id) {
-//
-//        User u = null;
-//        try {
-//            u = userService.getUserById(id);
-//        } catch (BootcampException e) {
-//            return ResponseEntity.notFound().build();
-//        }
-//
-//        return ResponseEntity.status(HttpStatus.OK).body(u);
-//
-//    }
 
     @GetMapping(value = "/{id}")
     public User getUserById(@PathVariable("id") long id, Authentication authentication) throws BootcampException {
@@ -78,7 +51,6 @@ public class UserController {
         return userService.getUserById(id);
     }
 
-//    HTTP GET /users?id=1
     @GetMapping(value = "", params = "id")
     public User getUserByParamId(@RequestParam long id, Authentication authentication) throws BootcampException {
 
@@ -144,9 +116,6 @@ public class UserController {
                 .expiresAt(now.plus(6, ChronoUnit.HOURS))
                 .subject(String.valueOf(loggedInUser.getId()))
                 .claim("user_id", loggedInUser.getId())
-//                .subject(loggedInUser.getUsername())
-//                .claim("roles", auth.getAuthorities().stream()
-//                        .map(a -> a.getAuthority()).toList())
                 .build();
 
         // Encode and return token

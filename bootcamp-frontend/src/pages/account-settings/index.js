@@ -191,7 +191,7 @@ export default function AccountPage() {
                     <div className="header-content">
                         <div className="header-brand">
                             <img src="./bootcamp-2025.03-logo.jpg" alt="Logo" className="header-logo" />
-                            <div className="header-title">Chat Application</div>
+                            <div className="header-title">Chat App</div>
                         </div>
                         <div className="profile-dropdown">
                             <input type="checkbox" id="profile-toggle" />
@@ -221,12 +221,12 @@ export default function AccountPage() {
                                 <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} />
                             </div>
                             <div className="form-group">
-                                <label htmlFor="intro">Customize ChatGPT</label>
+                                <label htmlFor="intro">Customize Chat App</label>
                                 <small>Introduce yourself to get better, more personalized responses</small>
                                 <textarea id="intro" rows="3" value={intro} onChange={(e) => setIntro(e.target.value)} />
                             </div>
                             <div className="form-group">
-                                <label htmlFor="nickname">What should ChatGPT call you?</label>
+                                <label htmlFor="nickname">What should Chat App call you?</label>
                                 <input type="text" id="nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} />
                             </div>
                             <div className="form-group">
@@ -234,7 +234,7 @@ export default function AccountPage() {
                                 <input type="text" id="job" value={job} onChange={(e) => setJob(e.target.value)} />
                             </div>
                             <div className="form-group">
-                                <label>What traits should ChatGPT have?</label>
+                                <label>What traits should Chat App have?</label>
                                 <div className="traits">
                                     {traitOptions.map((trait) => (
                                         <label key={trait}>
@@ -245,7 +245,7 @@ export default function AccountPage() {
                                 </div>
                             </div>
                             <div className="form-group">
-                                <label htmlFor="notes">Anything else ChatGPT should know about you?</label>
+                                <label htmlFor="notes">Anything else Chat App should know about you?</label>
                                 <textarea id="notes" rows="3" value={notes} onChange={(e) => setNotes(e.target.value)} />
                             </div>
                             <div className="form-actions">

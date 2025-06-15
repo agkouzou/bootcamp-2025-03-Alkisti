@@ -25,7 +25,7 @@ import java.util.Optional;
 @Service
 public class MessageService {
 
-    @Value("${groq.api.key}")
+    @Value("${GROQ_API_KEY:}")
     private String groqApiKey;
 
     @Value("${groq.model}")
@@ -265,12 +265,13 @@ public class MessageService {
         User user = userService.getUserById(userId);
         UserProfileSettingsDTO settings = userProfileSettingsService.getProfileSettingsByUser(user);
 
-        String nickname = settings.getNickname();
-        String job = settings.getJob();
-        List<String> traitsList = settings.getTraits();
-        String traits = traitsList != null ? String.join(", ", traitsList) : "";
-        String intro = settings.getIntroduction();
-        String notes = settings.getNotes();
+        // Defensive null checks with default empty strings or empty lists
+        String nickname = (settings != null && settings.getNickname() != null) ? settings.getNickname() : "";
+        String job = (settings != null && settings.getJob() != null) ? settings.getJob() : "";
+        List<String> traitsList = (settings != null && settings.getTraits() != null) ? settings.getTraits() : List.of();
+        String traits = traitsList.isEmpty() ? "" : String.join(", ", traitsList);
+        String intro = (settings != null && settings.getIntroduction() != null) ? settings.getIntroduction() : "";
+        String notes = (settings != null && settings.getNotes() != null) ? settings.getNotes() : "";
 
         // Build system prompt using profile
         String systemPrompt = String.format("""
@@ -343,25 +344,27 @@ public class MessageService {
             // Build a personalized system prompt based on user profile settings
             StringBuilder systemPrompt = new StringBuilder("You are a helpful assistant. Generate a short, 5-7 word title that summarizes the following conversation. ");
 
-            if (settings.getNickname() != null && !settings.getNickname().isBlank()) {
-                systemPrompt.append("The user’s nickname is ").append(settings.getNickname()).append(". ");
-            }
+            if (settings != null) {
+                if (settings.getNickname() != null && !settings.getNickname().isBlank()) {
+                    systemPrompt.append("The user’s nickname is ").append(settings.getNickname()).append(". ");
+                }
 
-            if (settings.getIntroduction() != null && !settings.getIntroduction().isBlank()) {
-                systemPrompt.append("Intro: ").append(settings.getIntroduction()).append(" ");
-            }
+                if (settings.getIntroduction() != null && !settings.getIntroduction().isBlank()) {
+                    systemPrompt.append("Intro: ").append(settings.getIntroduction()).append(" ");
+                }
 
-            if (settings.getJob() != null && !settings.getJob().isBlank()) {
-                systemPrompt.append("The user works as a ").append(settings.getJob()).append(". ");
-            }
+                if (settings.getJob() != null && !settings.getJob().isBlank()) {
+                    systemPrompt.append("The user works as a ").append(settings.getJob()).append(". ");
+                }
 
-            if (settings.getTraits() != null && !settings.getTraits().isEmpty()) {
-                String traitsJoined = String.join(", ", settings.getTraits());
-                systemPrompt.append("Personality traits: ").append(traitsJoined).append(". ");
-            }
+                if (settings.getTraits() != null && !settings.getTraits().isEmpty()) {
+                    String traitsJoined = String.join(", ", settings.getTraits());
+                    systemPrompt.append("Personality traits: ").append(traitsJoined).append(". ");
+                }
 
-            if (settings.getNotes() != null && !settings.getNotes().isBlank()) {
-                systemPrompt.append("Additional notes: ").append(settings.getNotes()).append(". ");
+                if (settings.getNotes() != null && !settings.getNotes().isBlank()) {
+                    systemPrompt.append("Additional notes: ").append(settings.getNotes()).append(". ");
+                }
             }
 
             messages.add(new ChatMessage("system", systemPrompt.toString()));

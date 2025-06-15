@@ -2,23 +2,17 @@ package dev.ctrlspace.bootcamp_2025_03.configurations;
 
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.KeySourceException;
 import com.nimbusds.jose.jwk.*;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
-import dev.ctrlspace.bootcamp_2025_03.repository.UserRepository;
 import dev.ctrlspace.bootcamp_2025_03.services.UserService;
-import org.hibernate.query.sqm.internal.NoParamSqmCopyContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -35,13 +29,6 @@ import java.util.List;
 
 @Configuration
 public class SecurityConfig {
-
-//    We dont need this, because UserService is marked with @Service.
-//    But it's an other way to do the same thing.
-//    @Bean
-//    public UserService userService(UserRepository userRepository) {
-//        return new UserService(userRepository);
-//    }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
@@ -96,9 +83,6 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
          return NoOpPasswordEncoder.getInstance();
-
-        // If you want to use a custom password encoder, you can implement PasswordEncoder interface
-//        return new BCryptPasswordEncoder();
     }
 
 

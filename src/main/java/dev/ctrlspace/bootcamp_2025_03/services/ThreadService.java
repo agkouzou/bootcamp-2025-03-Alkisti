@@ -26,17 +26,14 @@ public class ThreadService {
     @Value("${groq.model}")
     private String groqDefaultModel;
 
-    private MessageService messageService;
     private ThreadRepository threadRepository;
     private UserRepository userRepository;
 
     @Autowired
     public ThreadService(
-            MessageService messageService,
             ThreadRepository threadRepository,
             UserRepository userRepository
     ) {
-        this.messageService = messageService;
         this.threadRepository = threadRepository;
         this.userRepository = userRepository;
     }

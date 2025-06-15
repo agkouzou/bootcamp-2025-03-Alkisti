@@ -7,10 +7,8 @@ import jakarta.persistence.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -48,9 +46,6 @@ public class User implements UserDetails {
     @Basic
     @Column(name = "password_reset_token")
     private String passwordResetToken;
-
-    @Column(name = "password_reset_token_expiry")
-    private LocalDateTime passwordResetTokenExpiry;
 
     // ========== Relationships ==========
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
@@ -120,22 +115,6 @@ public class User implements UserDetails {
 
     public void setPasswordResetToken(String passwordResetToken) {
         this.passwordResetToken = passwordResetToken;
-    }
-
-    public LocalDateTime getPasswordResetTokenExpiry() {
-        return passwordResetTokenExpiry;
-    }
-
-    public void setPasswordResetTokenExpiry(LocalDateTime passwordResetTokenExpiry) {
-        this.passwordResetTokenExpiry = passwordResetTokenExpiry;
-    }
-
-    public UserProfileSettings getUserProfileSettings() {
-        return userProfileSettings;
-    }
-
-    public void setUserProfileSettings(UserProfileSettings userProfileSettings) {
-        this.userProfileSettings = userProfileSettings;
     }
 
     // ========== UserDetails Implementation ==========
