@@ -7,7 +7,7 @@ A full-stack, web-based AI chat platform that allows users to interact with an a
 ## Tech Stack
 
 - **Backend:** Spring Boot, Spring Security, JWT Authentication
-- **Frontend:** Next.js, React (npm)
+- **Frontend:** Next.js / React
 - **AI Integration:** Groq API
 - **Email Services:** SendGrid (verification & password reset)
 
@@ -32,32 +32,6 @@ This starts a `postgres` superuser with password `postgres` and a default `postg
 
 **Option B - Native install:**
 Install PostgreSQL locally and ensure the `postgres` role's password is `postgres`. If your local setup uses different credentials, update `spring.datasource.username` / `password` (and `url` if needed) in `src/main/resources/application.properties` to match.
-
-### Environment variables
-The backend reads secrets from a `.env` file in the project root (loaded automatically at startup). A template, `.env.example`, is provided with the required keys:
-
-```dotenv
-GROQ_API_KEY=
-SENDGRID_API_KEY=
-SENDGRID_FROM_EMAIL=
-```
-
-Copy the template to `.env` (which is gitignored, so your secrets stay out of version control) and fill in your own credentials:
-
-```bash
-cp .env.example .env
-```
-
-Then add your values to `.env`.
-
-### Configuration
-Non-secret settings live in `src/main/resources/application.properties`. Defaults target local development - override these for other environments:
-
-| Property | Default | Purpose |
-|---|---|---|
-| `spring.datasource.url` / `username` / `password` | `localhost:5432`, `postgres` / `postgres` | Database connection |
-| `app.cors.allowed-origins` | `http://localhost:3000` | Origins allowed to call the API |
-| `app.frontend.base-url` | `http://localhost:3000` | Base URL used in verification/reset email links |
 
 ### Database initialization
 When the backend starts, Hibernate (`spring.jpa.hibernate.ddl-auto=update`) automatically creates/updates the core tables from the JPA entities (`users`, `threads`, `messages`, `user_profile_settings`, ...). **No manual schema step is required to run the app** - you can start the backend against an empty database and register an account through the sign-up flow.
@@ -85,6 +59,44 @@ To start over from a clean state, pick whichever fits your setup:
   docker run --name aichat-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:17
   ```
 
+### Environment variables
+The backend reads configuration from a `.env` file in the project root (loaded automatically at startup). A template, `.env.example`, is provided:
+
+```dotenv
+# Required
+GROQ_API_KEY=
+SENDGRID_API_KEY=
+SENDGRID_FROM_EMAIL=
+
+# Optional (development): comma-separated frontend origins allowed to call the API
+# directly, e.g. an ngrok URL. Leave blank to use the default, http://localhost:3000.
+CORS_ALLOWED_ORIGINS=
+```
+
+Copy the template to `.env` (which is gitignored, so your secrets stay out of version control) and fill in your values:
+
+```bash
+cp .env.example .env
+```
+
+`GROQ_API_KEY`, `SENDGRID_API_KEY`, and `SENDGRID_FROM_EMAIL` are required. `CORS_ALLOWED_ORIGINS` is optional - the Configuration and demo sections below explain when you need it.
+
+### Configuration
+There are two distinct kinds of configuration:
+
+- **Committed defaults** - non-secret settings in `src/main/resources/application.properties`, kept in version control and shared by everyone. They target local development.
+- **Machine-specific config** - secrets and per-developer overrides that must never be committed. These live in `.env` (loaded automatically) or in environment variables, and take precedence over the committed defaults.
+
+Common settings, their committed defaults, and how to override them per machine:
+
+| Property | Default (committed) | Per-machine override | Purpose |
+|---|---|---|---|
+| `spring.datasource.url` / `username` / `password` | `localhost:5432`, `postgres` / `postgres` | edit `application.properties` locally | Database connection |
+| `app.cors.allowed-origins` | `http://localhost:3000` | `CORS_ALLOWED_ORIGINS` env var | Comma-separated frontend origins allowed to call the API |
+| `app.frontend.base-url` | `http://localhost:3000` | run argument (see the demo section) | Base URL used in verification / reset email links |
+
+`app.cors.allowed-origins` is defined as `${CORS_ALLOWED_ORIGINS:http://localhost:3000}`, so setting the `CORS_ALLOWED_ORIGINS` environment variable is the preferred way to add an origin - it keeps machine-specific URLs out of version control instead of editing (and accidentally committing) `application.properties`.
+
 ### Running the app
 
 **Backend** (from the project root) - starts on `http://localhost:8080`:
@@ -99,6 +111,42 @@ npm run dev
 ```
 
 The app opens at the login page - `http://localhost:3000/login` (the root path `/` just redirects there).
+
+### Run configurations (four variations)
+How you run the app varies along two independent choices: **where** you use it (local vs. a public ngrok tunnel) and **how the browser reaches the backend** (through the Next.js `/api` proxy, or calling the backend directly). "Direct" is the only combination that involves CORS.
+
+| # | Where | Frontend -> backend | CORS | App is live at |
+|---|---|---|---|---|
+| 1 | Local | Direct (default) | committed default allows it | `http://localhost:3000/login` |
+| 2 | Local | Proxy (`/api`) | not used | `http://localhost:3000/login` |
+| 3 | ngrok, 1 tunnel | Proxy (`/api`) | not used | `https://<random>.ngrok-free.dev/login` |
+| 4 | ngrok, 2 tunnels | Direct | must allow the frontend URL | `https://<frontend>.ngrok-free.dev/login` |
+
+All four start the same two servers first (see **Running the app** above): backend with `./mvnw spring-boot:run`, frontend with `npm run dev`. Then:
+
+**1. Local + Direct** (default - nothing extra to configure)
+Just start the two servers. The frontend calls `http://localhost:8080` directly, and the committed default `app.cors.allowed-origins=http://localhost:3000` already allows that origin.
+Live at: **`http://localhost:3000/login`**
+
+**2. Local + Proxy**
+Create `bootcamp-frontend/.env.local` containing `NEXT_PUBLIC_API_URL=/api`, then start the servers. The browser calls `/api/*` on the frontend, which forwards to the backend server-side - no cross-origin request, so no CORS.
+Live at: **`http://localhost:3000/login`**
+
+> Variations 1 and 2 look identical from the user's side - same URL, same behavior. The only difference is *how* the frontend reaches the backend, and which one you get is decided by the gitignored `bootcamp-frontend/.env.local`: absent (as in a fresh clone) gives #1 (direct); present with `NEXT_PUBLIC_API_URL=/api` gives #2 (proxy). The proxy mainly matters because it is what enables the single-tunnel ngrok setup in #3.
+
+**3. ngrok + Proxy** (recommended for sharing - a single tunnel)
+Set `NEXT_PUBLIC_API_URL=/api` (as in #2), start the servers, then `ngrok http 3000`. Only the frontend is exposed; the backend stays private behind the proxy. Get the public URL from http://127.0.0.1:4040. Full steps are in **Sharing a temporary public demo** below.
+Live at: **`https://<random>.ngrok-free.dev/login`**
+
+**4. ngrok + Direct** (advanced - not recommended; the proxy in #3 exists to avoid this)
+Expose both servers and let the browser call the backend directly. This needs two tunnels, a frontend rebuild, and CORS:
+- Tunnel both ports - on the free plan, one agent via `ngrok start --all` with tunnels defined for `3000` and `8080`.
+- Point the frontend at the backend's public URL: set `NEXT_PUBLIC_API_URL=https://<backend>.ngrok-free.dev` in `.env.local`, then rebuild with `npm run build && npm run start` (`NEXT_PUBLIC_*` values are baked in at build time).
+- Allow the frontend origin on the backend: `CORS_ALLOWED_ORIGINS=https://<frontend>.ngrok-free.dev`.
+- Caveat: free ngrok shows an interstitial page that can block the browser's API calls to the backend tunnel.
+Live at: **`https://<frontend>.ngrok-free.dev/login`**
+
+> For any ngrok variation: on the free plan the URL changes each time ngrok restarts, and to demo email verification / password reset you must also set `app.frontend.base-url` to the public frontend URL (see the demo section).
 
 ### Sharing a temporary public demo (optional)
 The frontend proxies API calls to the backend server-side (`next.config.mjs`
@@ -124,6 +172,14 @@ as [ngrok](https://ngrok.com) without exposing the backend separately.
    ```bash
    ./mvnw spring-boot:run -Dspring-boot.run.arguments="--app.frontend.base-url=https://<random>.ngrok-free.dev"
    ```
+
+**Notes for a per-developer setup:**
+- Use your **own** ngrok URL - each developer gets a different one. On the free ngrok plan that URL **changes every time ngrok restarts**, so treat it as temporary and don't hard-code or commit it.
+- With the `/api` proxy above, the browser only talks to the frontend origin, so **no CORS change is needed** - login and chat work without putting the ngrok URL anywhere. If instead the browser calls the backend directly at a custom origin (i.e. you are not using the proxy), take the URL from step 3 and add it to `CORS_ALLOWED_ORIGINS` in your `.env` (loaded automatically) rather than editing and committing `application.properties`:
+  ```dotenv
+  CORS_ALLOWED_ORIGINS=http://localhost:3000,https://<random>.ngrok-free.dev
+  ```
+- For email verification / password reset, the ngrok URL from step 3 must also reach the backend as `app.frontend.base-url` (step 4) so the emailed links point to the public site rather than localhost.
 
 > A tunnel exposes your locally-running app to the public internet, with whatever
 > security posture it currently has. Use it only for short, ad-hoc demos and stop
