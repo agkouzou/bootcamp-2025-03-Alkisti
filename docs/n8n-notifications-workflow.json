@@ -1,0 +1,131 @@
+{
+  "name": "AI Chat App → Notification Emails",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-chat-notifications",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "0c7e4a1b-2d3f-4e5a-8b6c-7d8e9f0a1b21",
+      "name": "Webhook: notification event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "5d9b3f7a-1c2e-4a6b-9d8f-0e1a2b3c4d52"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c61",
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "user.registered",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "user.registered"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "id": "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d72",
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "password_reset.requested",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "password_reset.requested"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3c4d5e6f-7a8b-4c9d-0e1f-2a3b4c5d6e83",
+      "name": "Switch: event type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "resource": "mail",
+        "operation": "send",
+        "fromEmail": "verified-sender@example.com",
+        "fromName": "AI Chat App",
+        "toEmail": "={{ $json.body.email }}",
+        "subject": "Verify your email address",
+        "contentType": "text/plain",
+        "contentValue": "=Hi {{ $json.body.name }}, welcome! Please verify your account by clicking this link: {{ $json.body.verificationLink }}",
+        "additionalFields": {}
+      },
+      "id": "4d5e6f7a-8b9c-4d0e-1f2a-3b4c5d6e7f94",
+      "name": "SendGrid: verification email",
+      "type": "n8n-nodes-base.sendGrid",
+      "typeVersion": 1,
+      "position": [500, -120]
+    },
+    {
+      "parameters": {
+        "resource": "mail",
+        "operation": "send",
+        "fromEmail": "verified-sender@example.com",
+        "fromName": "AI Chat App",
+        "toEmail": "={{ $json.body.email }}",
+        "subject": "Password Reset Request",
+        "contentType": "text/plain",
+        "contentValue": "=Hi {{ $json.body.name }}, you requested to reset your password. Click this link to set a new password: {{ $json.body.resetLink }}\nIf you didn't request this, please ignore this email.",
+        "additionalFields": {}
+      },
+      "id": "5e6f7a8b-9c0d-4e1f-2a3b-4c5d6e7f8a05",
+      "name": "SendGrid: password reset email",
+      "type": "n8n-nodes-base.sendGrid",
+      "typeVersion": 1,
+      "position": [500, 120]
+    }
+  ],
+  "connections": {
+    "Webhook: notification event": {
+      "main": [
+        [
+          { "node": "Switch: event type", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Switch: event type": {
+      "main": [
+        [
+          { "node": "SendGrid: verification email", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "SendGrid: password reset email", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "pinData": {}
+}
